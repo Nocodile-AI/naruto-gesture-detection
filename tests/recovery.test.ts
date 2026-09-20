@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { setLanguage } from "../src/i18n";
 import { cameraFailureMessage, storageFailureMessage } from "../src/recovery";
 
 describe("actionable recovery messages", () => {
+  setLanguage("en");
+
   it.each([
     ["NotAllowedError", "denied"],
     ["NotFoundError", "No usable camera"],

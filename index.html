@@ -1,92 +1,136 @@
 <!doctype html>
 <html
-  lang="en"
+  lang="zh-Hant"
   class="wa-light wa-brand-orange wa-neutral-gray wa-success-green wa-warning-yellow wa-danger-red"
 >
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#f8fafc" />
-    <title>Train your clone sign | naruto-gesture-detection</title>
+    <title>訓練你的分身手勢 | naruto-gesture-detection</title>
   </head>
   <body>
     <main class="trainer" id="collect">
       <header class="intro">
-        <h1>Train your <span>clone sign.</span></h1>
+        <div class="topbar">
+          <label class="language-switch" for="language-select">
+            <span data-i18n="languageLabel">語言</span>
+            <select id="language-select" aria-label="語言" data-i18n-label="languageLabel">
+              <option value="zh-Hant" data-i18n="languageChinese">中文</option>
+              <option value="en" data-i18n="languageEnglish">English</option>
+            </select>
+          </label>
+        </div>
+        <h1>
+          <span data-i18n="introTitlePrefix">訓練你的</span>
+          <span data-i18n="introTitleHighlight">分身手勢。</span>
+        </h1>
       </header>
       <p id="boot-status" class="status-line" role="status" data-auto-hide hidden></p>
       <section id="sync-warning" class="sync-warning" aria-labelledby="sync-warning-title" hidden>
         <div>
-          <h2 id="sync-warning-title">Saved work changed</h2>
+          <h2 id="sync-warning-title" data-i18n="savedWorkChanged">已儲存的作品已變更</h2>
           <p id="sync-status" role="alert"></p>
         </div>
-        <wa-button id="btn-reload-state" variant="warning">Reload</wa-button>
+        <wa-button id="btn-reload-state" variant="warning" data-i18n="reload">重新載入</wa-button>
       </section>
 
       <div class="workspace">
         <section class="camera-panel" aria-labelledby="camera-title">
-          <div class="section-heading"><h2 id="camera-title">Camera</h2></div>
+          <div class="section-heading"><h2 id="camera-title" data-i18n="camera">鏡頭</h2></div>
           <div class="viewfinder">
             <video id="trainer-video" autoplay playsinline muted></video>
             <canvas
               id="trainer-canvas"
               width="640"
               height="480"
-              aria-label="Camera preview with hand tracking and shadow clones"
+              aria-label="含手部追蹤與影分身效果的鏡頭預覽"
+              data-i18n-label="cameraCanvasLabel"
             ></canvas>
-            <span id="viewfinder-note">Camera is off</span>
-            <span id="rec-badge" hidden>Recording</span>
+            <span id="viewfinder-note">鏡頭已關閉</span>
+            <span id="rec-badge" hidden data-i18n="recording">錄製中</span>
             <div class="video-overlay-badge" aria-hidden="true">
               <img id="effect-overlay" src="assets/state-1.png" data-state="1" alt="" />
             </div>
           </div>
           <div class="camera-controls">
-            <wa-button id="btn-camera" variant="neutral" appearance="filled"
-              >Start camera</wa-button
+            <wa-button id="btn-camera" variant="neutral" appearance="filled" data-i18n="startCamera"
+              >開啟鏡頭</wa-button
             >
-            <wa-button id="btn-stop-camera" appearance="outlined" disabled>Stop camera</wa-button>
+            <wa-button id="btn-stop-camera" appearance="outlined" disabled data-i18n="stopCamera"
+              >停止鏡頭</wa-button
+            >
           </div>
           <p id="camera-status" class="status-line" role="status" data-auto-hide hidden></p>
         </section>
 
         <aside class="side-panel">
           <section id="training-controls" class="mode-controls" aria-labelledby="training-title">
-            <div class="section-heading"><h2 id="training-title">Examples</h2></div>
+            <div class="section-heading">
+              <h2 id="training-title" data-i18n="examples">範例</h2>
+            </div>
             <div class="sample-grid">
               <article class="sample-class positive">
-                <h3>Clone sign</h3>
-                <p class="counts"><strong id="count-clone">0 clips</strong></p>
-                <wa-button id="btn-rec-clone" variant="brand">Record</wa-button>
-                <wa-button id="btn-remove-clone" appearance="plain" size="small" disabled
-                  >Remove last</wa-button
+                <h3 data-i18n="cloneSign">分身手勢</h3>
+                <p class="counts"><strong id="count-clone">0 段</strong></p>
+                <wa-button id="btn-rec-clone" variant="brand" data-i18n="record">錄製</wa-button>
+                <wa-button
+                  id="btn-remove-clone"
+                  appearance="plain"
+                  size="small"
+                  disabled
+                  data-i18n="removeLast"
+                  >移除上一段</wa-button
                 >
               </article>
               <article class="sample-class negative">
-                <h3>Not clone sign</h3>
-                <p class="counts"><strong id="count-other">0 clips</strong></p>
-                <wa-button id="btn-rec-other" variant="neutral" appearance="outlined"
-                  >Record</wa-button
+                <h3 data-i18n="notCloneSign">非分身手勢</h3>
+                <p class="counts"><strong id="count-other">0 段</strong></p>
+                <wa-button
+                  id="btn-rec-other"
+                  variant="neutral"
+                  appearance="outlined"
+                  data-i18n="record"
+                  >錄製</wa-button
                 >
-                <wa-button id="btn-remove-other" appearance="plain" size="small" disabled
-                  >Remove last</wa-button
+                <wa-button
+                  id="btn-remove-other"
+                  appearance="plain"
+                  size="small"
+                  disabled
+                  data-i18n="removeLast"
+                  >移除上一段</wa-button
                 >
               </article>
             </div>
             <p id="collection-status" class="status-line" role="status" data-auto-hide hidden></p>
             <div class="training-actions">
               <div id="training-primary-actions" class="training-primary-actions">
-                <wa-button id="btn-train" variant="brand" disabled>Train model</wa-button>
-                <wa-button id="btn-start-over" variant="danger" appearance="outlined"
-                  >Start over</wa-button
+                <wa-button id="btn-train" variant="brand" disabled data-i18n="trainModel"
+                  >訓練模型</wa-button
+                >
+                <wa-button
+                  id="btn-start-over"
+                  variant="danger"
+                  appearance="outlined"
+                  data-i18n="startOver"
+                  >重新開始</wa-button
                 >
               </div>
-              <wa-button id="btn-cancel-clip" appearance="plain" hidden>Cancel recording</wa-button>
-              <wa-button id="btn-save-retry" size="small" hidden>Retry save</wa-button>
-              <wa-button id="btn-cancel-train" appearance="plain" hidden>Cancel training</wa-button>
+              <wa-button id="btn-cancel-clip" appearance="plain" hidden data-i18n="cancelRecording"
+                >取消錄製</wa-button
+              >
+              <wa-button id="btn-save-retry" size="small" hidden data-i18n="retrySave"
+                >重試儲存</wa-button
+              >
+              <wa-button id="btn-cancel-train" appearance="plain" hidden data-i18n="cancelTraining"
+                >取消訓練</wa-button
+              >
               <wa-progress-bar
                 id="training-progress"
                 value="0"
-                label="Training progress"
+                label="訓練進度"
+                data-i18n-label="trainingProgress"
               ></wa-progress-bar>
               <p id="train-status" class="status-line" role="status" data-auto-hide hidden></p>
             </div>
@@ -99,25 +143,42 @@
             hidden
           >
             <div class="score-heading">
-              <h2 id="practice-title">Clone-sign score</h2>
-              <output id="conf-label" aria-label="Clone-sign score">N/A</output>
+              <h2 id="practice-title" data-i18n="cloneScore">分身手勢分數</h2>
+              <output id="conf-label" aria-label="分身手勢分數" data-i18n-label="cloneScore"
+                >N/A</output
+              >
             </div>
-            <wa-progress-bar id="confidence" value="0" label="Clone-sign score"></wa-progress-bar>
+            <wa-progress-bar
+              id="confidence"
+              value="0"
+              label="分身手勢分數"
+              data-i18n-label="cloneScore"
+            ></wa-progress-bar>
             <div id="trained-actions" class="trained-actions">
-              <wa-button id="effect-reset" variant="warning" hidden>Reset effect</wa-button>
-              <wa-button id="btn-edit-examples" appearance="outlined">Edit examples</wa-button>
+              <wa-button id="effect-reset" variant="warning" hidden data-i18n="resetEffect"
+                >重設效果</wa-button
+              >
+              <wa-button id="btn-edit-examples" appearance="outlined" data-i18n="editExamples"
+                >編輯範例</wa-button
+              >
             </div>
             <p id="practice-status" class="status-line" role="status" data-auto-hide hidden></p>
           </section>
         </aside>
       </div>
-    </main>
 
-    <wa-dialog id="start-over-dialog" label="Start over" with-footer>
-      <p>This clears naruto-gesture-detection examples and model files saved by this site.</p>
-      <wa-button id="btn-keep-work" slot="footer" appearance="outlined">Keep work</wa-button>
-      <wa-button id="btn-confirm-start-over" slot="footer" variant="danger">Clear work</wa-button>
-    </wa-dialog>
+      <wa-dialog id="start-over-dialog" label="重新開始" data-i18n-label="startOver" with-footer>
+        <p data-i18n="startOverBody">
+          這會清除本網站儲存的 naruto-gesture-detection 範例與模型檔案。
+        </p>
+        <wa-button id="btn-keep-work" slot="footer" appearance="outlined" data-i18n="keepWork"
+          >保留作品</wa-button
+        >
+        <wa-button id="btn-confirm-start-over" slot="footer" variant="danger" data-i18n="clearWork"
+          >清除作品</wa-button
+        >
+      </wa-dialog>
+    </main>
 
     <script type="module" src="/src/trainer.ts"></script>
   </body>

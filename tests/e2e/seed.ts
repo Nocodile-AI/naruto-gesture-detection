@@ -73,8 +73,8 @@ export async function trainSeededModel(page: Page): Promise<void> {
   await page.goto("/");
   await seedDataset(page);
   await page.reload();
-  await expect(page.getByRole("button", { name: "Train model" })).toBeEnabled();
-  await page.getByRole("button", { name: "Train model" }).click();
+  await expect(page.locator("#btn-train")).toBeEnabled();
+  await page.locator("#btn-train").click();
   await expect(page.locator("#trained-controls")).toBeVisible({ timeout: 45000 });
   await expect(page.locator("#training-controls")).toBeHidden();
 }

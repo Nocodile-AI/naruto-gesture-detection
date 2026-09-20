@@ -28,6 +28,15 @@ import { GestureTrigger } from "./trigger";
 import { storageFailureMessage } from "./recovery";
 import { subscribeAppStateChanges } from "./state-sync";
 import { CloneEffect, CLONE_EFFECT_DURATION_MS } from "./clone-effect";
+import {
+  applyDocumentTranslations,
+  currentLanguage,
+  onLanguageChange,
+  setLanguage,
+  t,
+  translateErrorMessage,
+  type Language,
+} from "./i18n";
 
 let dataset: Dataset = { revision: 0, clips: [] };
 let persistedRevision = 0;
@@ -69,6 +78,11 @@ const video = element<HTMLVideoElement>("trainer-video");
 const canvas = element<HTMLCanvasElement>("trainer-canvas");
 const ctx = context2d(canvas);
 const cloneEffect = new CloneEffect(element<HTMLImageElement>("effect-overlay"));
+const languageSelect = element<HTMLSelectElement>("language-select");
+
+function translateError(error: unknown): string {
+  return error instanceof Error ? translateErrorMessage(error.message) : t("tryAgain");
+}
 
 function enableTestingRuntime(): void {
   cloneEffect.enableSegmentation();
@@ -80,19 +94,19 @@ function finishCloneEffect(): void {
   effectTimer = null;
   cloneEffect.reset();
   practiceTrigger.requireRelease(performance.now());
-  say("practice-status", "Release to re-arm.");
+  say("practice-status", t("releaseToRearm"));
   render();
 }
 
 function startCloneEffect(now: number): void {
   if (!cloneEffect.start(now)) {
     practiceTrigger.arm();
-    say("practice-status", "Effect loading.");
+    say("practice-status", t("effectLoading"));
     return;
   }
   if (effectTimer) clearTimeout(effectTimer);
   effectTimer = setTimeout(finishCloneEffect, CLONE_EFFECT_DURATION_MS);
-  say("practice-status", "Clone sequence active.");
+  say("practice-status", t("cloneSequenceActive"));
   render();
 }
 
@@ -155,31 +169,32 @@ const camera = new HandCamera(
       if (triggerState.triggered) {
         startCloneEffect(now);
       } else if (triggerState.phase === "holding") {
-        say("practice-status", `Hold ${Math.round(triggerState.positiveProgress * 100)}%`);
+        say(
+          "practice-status",
+          t("holdPercent", { percent: Math.round(triggerState.positiveProgress * 100) }),
+        );
       } else if (triggerState.phase === "latched" || triggerState.phase === "release-required") {
-        say("practice-status", "Release to re-arm.");
+        say("practice-status", t("releaseToRearm"));
       } else {
         say("practice-status", "");
       }
     } catch {
       clearScore();
-      say("practice-status", "Prediction failed. Retrain the model.");
+      say("practice-status", t("predictionFailed"));
     }
   },
-  (message, ready) => {
+  (message, ready, kind) => {
     cameraReady = ready;
     if (!ready) {
       latest = null;
       clearScore();
       if (recording) cancelClip();
     }
-    const loading = /loading|starting|allow camera/i.test(message);
-    const failed = /denied|could not|stopped|requires|does not provide|no usable|busy|failed/i.test(
-      message,
-    );
+    const loading = kind === "loading";
+    const failed = kind === "failed";
     say(
       "viewfinder-note",
-      ready ? "" : cameraStarted ? (loading ? "Loading" : "Camera paused") : "Camera is off",
+      ready ? "" : cameraStarted ? (loading ? t("loading") : t("cameraPaused")) : t("cameraOff"),
     );
     element("viewfinder-note").classList.toggle("loading", cameraStarted && loading);
     say("camera-status", failed ? message : "");
@@ -189,7 +204,7 @@ const camera = new HandCamera(
 );
 
 function clearScore(): void {
-  say("conf-label", "N/A");
+  say("conf-label", t("notAvailable"));
   progress("confidence").value = 0;
 }
 
@@ -202,7 +217,7 @@ function render(): void {
     ["not_sign", "count-other", "btn-rec-other", "btn-remove-other"],
   ] as const) {
     const counts = classCounts(dataset.clips, label);
-    say(countId, `${counts.clips} clips`);
+    say(countId, t("clips", { count: counts.clips }));
     button(recId).disabled =
       !idle ||
       interactionBlocked ||
@@ -246,7 +261,7 @@ async function persistClips(): Promise<void> {
     say("collection-status", "");
   } catch (error) {
     dirty = true;
-    say("collection-status", `Save failed. ${storageFailureMessage(error)} Retry before training.`);
+    say("collection-status", t("saveFailed", { message: storageFailureMessage(error) }));
   } finally {
     busy = "idle";
     render();
@@ -260,7 +275,7 @@ function cancelClip(): void {
   recording = null;
   element("rec-badge").hidden = true;
   busy = "idle";
-  say("collection-status", "Recording cancelled.");
+  say("collection-status", t("recordingCancelled"));
   render();
 }
 
@@ -302,7 +317,7 @@ async function finishClip(): Promise<void> {
   element("rec-badge").hidden = true;
   if (finished.frames.length < COLLECTION.minClipFrames) {
     busy = "idle";
-    say("collection-status", `${finished.frames.length} usable frames. Record this clip again.`);
+    say("collection-status", t("usableFramesRetry", { count: finished.frames.length }));
     render();
     return;
   }
@@ -337,7 +352,7 @@ async function removeLast(label: ClassLabel): Promise<void> {
 
 button("btn-camera").addEventListener("click", () => {
   cameraStarted = true;
-  say("viewfinder-note", "Loading");
+  say("viewfinder-note", t("loading"));
   element("viewfinder-note").classList.add("loading");
   render();
   void camera.start();
@@ -349,7 +364,7 @@ button("btn-stop-camera").addEventListener("click", () => {
   cameraReady = false;
   void camera.stop();
   say("camera-status", "");
-  say("viewfinder-note", "Camera is off");
+  say("viewfinder-note", t("cameraOff"));
   element("viewfinder-note").classList.remove("loading");
   render();
 });
@@ -384,7 +399,7 @@ button("btn-train").addEventListener("click", async () => {
       dataset.clips.filter((clip) => clip.label === "clone_sign").map((clip) => clip.frames),
       dataset.clips.filter((clip) => clip.label === "not_sign").map((clip) => clip.frames),
       (epoch) => {
-        say("train-status", `Training ${epoch}/${TRAINING_EPOCHS}`);
+        say("train-status", t("trainingEpoch", { epoch, total: TRAINING_EPOCHS }));
         progress("training-progress").value = (epoch / TRAINING_EPOCHS) * 100;
       },
       trainingAbort.signal,
@@ -397,7 +412,7 @@ button("btn-train").addEventListener("click", async () => {
 
     busy = "saving";
     render();
-    say("train-status", "Saving model...");
+    say("train-status", t("savingModel"));
     const published = await publishCandidate(candidate, dataset.revision);
     model?.dispose();
     model = candidate;
@@ -414,9 +429,7 @@ button("btn-train").addEventListener("click", async () => {
     const cancelled = error instanceof DOMException && error.name === "AbortError";
     say(
       "train-status",
-      cancelled
-        ? "Training cancelled."
-        : `Training failed. ${error instanceof Error ? error.message : "Try again."}`,
+      cancelled ? t("trainingCancelled") : t("trainingFailed", { message: translateError(error) }),
     );
   } finally {
     busy = "idle";
@@ -434,7 +447,9 @@ async function boot(): Promise<void> {
   void cloneEffect.prepareAssets().catch((error) => {
     say(
       "practice-status",
-      `Effect assets failed to load. ${error instanceof Error ? error.message : ""}`,
+      t("effectAssetsFailed", {
+        message: error instanceof Error ? translateErrorMessage(error.message) : "",
+      }),
     );
   });
 
@@ -445,7 +460,7 @@ async function boot(): Promise<void> {
     storageBlocked = true;
     say(
       "boot-status",
-      error instanceof Error ? error.message : "Saved work could not open. Reload or start over.",
+      error instanceof Error ? translateErrorMessage(error.message) : t("savedWorkOpenFailed"),
     );
   }
 
@@ -454,7 +469,7 @@ async function boot(): Promise<void> {
   } catch {
     storageBlocked = true;
     record = null;
-    say("train-status", "Saved model data cannot be opened safely. Start over to clear it.");
+    say("train-status", t("savedModelUnsafe"));
   }
 
   if (record) {
@@ -473,12 +488,12 @@ async function boot(): Promise<void> {
       editingExamples = record.datasetRevision !== dataset.revision;
       practiceTrigger.arm();
       if (!editingExamples) enableTestingRuntime();
-      else say("train-status", "Examples changed after this model. Train again.");
+      else say("train-status", t("examplesChanged"));
     } catch {
       record = null;
       model = null;
       editingExamples = true;
-      say("train-status", "Saved model could not be restored. Train again.");
+      say("train-status", t("savedModelRestoreFailed"));
     }
   }
 
@@ -501,7 +516,7 @@ async function markExternalChange(): Promise<void> {
   model = null;
   record = null;
   clearScore();
-  say("sync-status", "Reload before continuing.");
+  say("sync-status", t("reloadBeforeContinuing"));
   render();
 }
 
@@ -543,14 +558,14 @@ button("btn-confirm-start-over").addEventListener("click", async () => {
     model = null;
     record = null;
     if (result.cleanupFailures > 0) {
-      say("boot-status", "Old model cleanup failed. Try Start over again.");
+      say("boot-status", t("oldModelCleanupFailed"));
       busy = "idle";
       render();
       return;
     }
     location.reload();
   } catch (error) {
-    say("boot-status", `Reset failed. ${storageFailureMessage(error)}`);
+    say("boot-status", t("resetFailed", { message: storageFailureMessage(error) }));
     busy = "idle";
     render();
   }
@@ -558,6 +573,15 @@ button("btn-confirm-start-over").addEventListener("click", async () => {
 button("btn-reload-state").addEventListener("click", () => location.reload());
 
 const unsubscribeStateChanges = subscribeAppStateChanges(() => void markExternalChange());
+const unsubscribeLanguageChange = onLanguageChange(() => {
+  languageSelect.value = currentLanguage();
+  applyDocumentTranslations();
+  render();
+  if (!cameraStarted && !cameraReady) say("viewfinder-note", t("cameraOff"));
+});
+languageSelect.value = currentLanguage();
+languageSelect.addEventListener("change", () => setLanguage(languageSelect.value as Language));
+applyDocumentTranslations();
 window.addEventListener("focus", () => void checkStateFreshness());
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) void checkStateFreshness();
@@ -566,6 +590,7 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("pagehide", () => {
   disposed = true;
   unsubscribeStateChanges();
+  unsubscribeLanguageChange();
   cancelClip();
   trainingAbort?.abort();
   if (effectTimer) clearTimeout(effectTimer);
