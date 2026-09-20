@@ -26,3 +26,7 @@ downloads/
 
 # Local reference checkout used during development
 reference/
+
+# AI temp files
+.omo/
+.hermes/
