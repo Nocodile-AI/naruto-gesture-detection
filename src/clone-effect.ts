@@ -1,5 +1,6 @@
 import { SelfieSegmentation } from "@mediapipe/selfie_segmentation";
 import { publicUrl } from "./public-url";
+import { SELFIE_SEGMENTATION_BASE } from "./runtime/urls";
 
 const SMOKE_FOLDERS = ["smoke_1", "smoke_2", "smoke_3"] as const;
 const SMOKE_FRAME_COUNT = 5;
@@ -75,7 +76,7 @@ export class CloneEffect {
   enableSegmentation(): void {
     if (this.segmentation) return;
     const segmentation = new SelfieSegmentation({
-      locateFile: (file) => publicUrl(`vendor/selfie_segmentation/${file}`),
+      locateFile: (file) => `${SELFIE_SEGMENTATION_BASE}/${file}`,
     });
     segmentation.setOptions({ modelSelection: 1 });
     segmentation.onResults((result) => {

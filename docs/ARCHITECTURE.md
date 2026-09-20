@@ -63,4 +63,4 @@ That foreground pass keeps the real person in front of the clones, matching the 
 
 The production runtime uses pinned npm packages for TensorFlow.js, MediaPipe Holistic, Selfie Segmentation, IndexedDB helpers, schema validation, fonts, and Web Awesome components.
 
-MediaPipe's legacy browser files are copied into `public/vendor/` during dev/build so the shipped app does not depend on a third-party CDN at runtime.
+MediaPipe's legacy browser scripts and model/WASM assets load directly from version-pinned jsDelivr URLs in `src/runtime/urls.ts`. Both script loaders and `locateFile` use the same package versions. This keeps large runtime assets out of static deployments and requires access to jsDelivr at runtime. Camera frames and training data remain browser-local.

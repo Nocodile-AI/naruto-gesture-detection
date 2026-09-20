@@ -33,7 +33,7 @@ Keep the application browser-only unless a concrete product requirement demands 
 
 There is one shared webcam stream, one video element, and one canvas. Training, live prediction, MediaPipe Holistic, Selfie Segmentation, and the clone effect must reuse that camera path rather than opening independent camera streams.
 
-MediaPipe runtime files are copied from pinned npm packages into `public/vendor/` by `scripts/copy-runtime.mjs`. That directory is generated and must not be committed.
+MediaPipe scripts and runtime assets load from version-pinned jsDelivr URLs in `src/runtime/urls.ts`. Keep those versions aligned with the npm packages. Do not restore generated `public/vendor/` assets; deployments depend on CDN availability at runtime.
 
 ## Gesture features
 

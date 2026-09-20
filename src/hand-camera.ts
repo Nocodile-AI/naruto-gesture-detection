@@ -1,5 +1,5 @@
 import type { Holistic, Results } from "@mediapipe/holistic";
-import { publicUrl } from "./public-url";
+import { HOLISTIC_BASE } from "./runtime/urls";
 import { cameraFailureMessage, cameraSupportMessage } from "./recovery";
 
 // Keep camera frames imperative. No component/store receives raw video frames.
@@ -78,7 +78,7 @@ export class HandCamera {
       if (!modulePromise) throw new Error("Hand tracking could not initialize.");
       const { Holistic } = await modulePromise;
       if (generation !== this.generation) return;
-      this.detector = new Holistic({ locateFile: (file) => publicUrl(`vendor/holistic/${file}`) });
+      this.detector = new Holistic({ locateFile: (file) => `${HOLISTIC_BASE}/${file}` });
       this.detector.setOptions({ modelComplexity: 1, smoothLandmarks: true });
       this.detector.onResults((result) => {
         if (!this.active || document.hidden || generation !== this.generation) return;

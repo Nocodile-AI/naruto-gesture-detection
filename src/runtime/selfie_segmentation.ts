@@ -1,6 +1,6 @@
 import type { SelfieSegmentation as Constructor } from "@mediapipe/selfie_segmentation";
-import { publicUrl } from "../public-url";
+import { SELFIE_SEGMENTATION_BASE } from "./urls";
 import { loadScript } from "./load-script";
-await loadScript(publicUrl("vendor/selfie_segmentation/selfie_segmentation.js"));
+await loadScript(`${SELFIE_SEGMENTATION_BASE}/selfie_segmentation.js`);
 export const SelfieSegmentation = (window as unknown as { SelfieSegmentation: typeof Constructor })
   .SelfieSegmentation;
