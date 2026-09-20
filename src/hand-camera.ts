@@ -1,6 +1,9 @@
 import type { Holistic, Results } from "@mediapipe/holistic";
 import { HOLISTIC_BASE } from "./runtime/urls";
 import { cameraFailureMessage, cameraSupportMessage } from "./recovery";
+import { t } from "./i18n";
+
+export type CameraStatusKind = "loading" | "paused" | "ready" | "failed";
 
 // Keep camera frames imperative. No component/store receives raw video frames.
 export class HandCamera {
@@ -19,7 +22,7 @@ export class HandCamera {
   constructor(
     private video: HTMLVideoElement,
     private result: (result: Results | null) => void,
-    private status: (message: string, ready: boolean) => void,
+    private status: (message: string, ready: boolean, kind: CameraStatusKind) => void,
   ) {
     document.addEventListener("visibilitychange", this.visibility);
   }
@@ -40,9 +43,9 @@ export class HandCamera {
       cancelAnimationFrame(this.frame);
       this.frame = 0;
       this.result(null);
-      this.status("Camera paused while this tab is hidden.", false);
+      this.status(t("cameraPausedHidden"), false, "paused");
     } else {
-      this.status("Camera resumed. Show both hands.", this.firstResult);
+      this.status(t("cameraResumed"), this.firstResult, this.firstResult ? "ready" : "loading");
       this.schedule();
     }
   };
@@ -50,7 +53,7 @@ export class HandCamera {
     if (this.active || this.starting) return;
     const support = cameraSupportMessage();
     if (support) {
-      this.status(support, false);
+      this.status(support, false, "failed");
       return;
     }
     this.starting = true;
@@ -60,7 +63,7 @@ export class HandCamera {
       // MediaPipe can finish close() slightly before Chromium releases the video
       // capture pipeline. Yield briefly before requesting the same device again.
       await new Promise<void>((resolve) => setTimeout(resolve, 100));
-      this.status("Camera starting...", false);
+      this.status(t("cameraStarting"), false, "loading");
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480, facingMode: "user" },
         audio: false,
@@ -72,10 +75,10 @@ export class HandCamera {
       this.stream = stream;
       this.video.srcObject = stream;
       await this.video.play();
-      this.status("Camera ready. Loading hand tracking...", false);
+      this.status(t("cameraReadyTracking"), false, "loading");
       if (!this.modulePromise) void this.prepare();
       const modulePromise = this.modulePromise;
-      if (!modulePromise) throw new Error("Hand tracking could not initialize.");
+      if (!modulePromise) throw new Error(t("handTrackingInitFailed"));
       const { Holistic } = await modulePromise;
       if (generation !== this.generation) return;
       this.detector = new Holistic({ locateFile: (file) => `${HOLISTIC_BASE}/${file}` });
@@ -86,24 +89,21 @@ export class HandCamera {
           this.firstResult = true;
           if (this.slowTimer) clearTimeout(this.slowTimer);
           this.slowTimer = null;
-          this.status("Camera running. Show both hands.", true);
+          this.status(t("cameraRunning"), true, "ready");
         }
         this.result(result);
       });
       this.active = true;
       this.slowTimer = setTimeout(() => {
         if (this.active && !this.firstResult) {
-          this.status(
-            "Hand tracking is taking longer than expected. Close other heavy tabs or try a faster device if it does not recover.",
-            false,
-          );
+          this.status(t("handTrackingSlow"), false, "loading");
         }
       }, 15000);
       this.schedule();
     } catch (error) {
       if (generation === this.generation) {
         await this.stop();
-        this.status(cameraFailureMessage(error), false);
+        this.status(cameraFailureMessage(error), false, "failed");
       }
     } finally {
       this.starting = false;
@@ -127,7 +127,7 @@ export class HandCamera {
         () => {
           this.pending = null;
           void this.stop();
-          this.status("Hand tracking stopped. Stop and start the camera to try again.", false);
+          this.status(t("handTrackingStopped"), false, "failed");
         },
       );
     });

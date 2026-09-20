@@ -31,6 +31,28 @@ a {
 .intro {
   padding: 28px 0 12px;
 }
+.topbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+.language-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 16px;
+  font-weight: 600;
+}
+.language-switch select {
+  min-height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  padding: 4px 28px 4px 12px;
+  font: inherit;
+}
 h1 {
   font-size: clamp(36px, 7vw, 64px);
   line-height: 1;

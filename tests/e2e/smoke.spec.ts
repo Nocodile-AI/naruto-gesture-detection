@@ -9,7 +9,8 @@ test("fresh browser shows one camera and the collection controls", async ({ page
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: /Train your clone sign/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /訓練你的 分身手勢。/ })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hant");
   await expect(page.locator(".viewfinder")).toHaveCount(1);
   await expect(page.locator("video")).toHaveCount(1);
   await expect(page.locator("canvas")).toHaveCount(1);
@@ -38,7 +39,7 @@ test("training switches the same panel from collection controls to live score", 
   await trainSeededModel(page);
   await expect(page.locator("#training-controls")).toBeHidden();
   await expect(page.locator("#trained-controls")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Start camera" })).toBeEnabled();
+  await expect(page.locator("#btn-camera")).toBeEnabled();
 
   await page.reload();
   await expect(page.locator("#trained-controls")).toBeVisible();
@@ -59,7 +60,7 @@ test("training switches the same panel from collection controls to live score", 
 test("legacy trainer route redirects to the consolidated workflow", async ({ page }) => {
   await page.goto("/trainer.html");
   await expect(page).toHaveURL(/\/#collect$/);
-  await expect(page.getByRole("heading", { name: /Train your clone sign/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /訓練你的 分身手勢。/ })).toBeVisible();
   await expect(page.locator(".viewfinder")).toHaveCount(1);
 });
 
@@ -103,8 +104,19 @@ test("incompatible saved-model metadata keeps the in-page retraining path", asyn
     { storageName: STORAGE_NAME, storageVersion: STORAGE_VERSION },
   );
   await page.reload();
-  await expect(page.locator("#train-status")).toContainText(/cannot be opened safely/i);
+  await expect(page.locator("#train-status")).toContainText(/無法安全開啟/);
   await expect(page.locator("#training-controls")).toBeVisible();
   await expect(page.locator("#trained-controls")).toBeHidden();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+});
+
+test("language switch toggles text and persists", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: /訓練你的 分身手勢。/ })).toBeVisible();
+  await page.locator("#language-select").selectOption("en");
+  await expect(page.getByRole("heading", { name: /Train your clone sign\./i })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await page.reload();
+  await expect(page.getByRole("heading", { name: /Train your clone sign\./i })).toBeVisible();
+  await expect(page.locator("#count-clone")).toHaveText("0 clips");
 });

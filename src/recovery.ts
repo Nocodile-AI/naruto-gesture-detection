@@ -1,3 +1,5 @@
+import { t, translateErrorMessage } from "./i18n";
+
 function errorName(error: unknown): string {
   if (error instanceof DOMException) return error.name;
   if (error && typeof error === "object" && "name" in error && typeof error.name === "string") {
@@ -10,28 +12,28 @@ export function cameraFailureMessage(error: unknown): string {
   switch (errorName(error)) {
     case "NotAllowedError":
     case "SecurityError":
-      return "Camera access was denied. Allow camera permission for this site in your browser, then try again.";
+      return t("cameraDenied");
     case "NotFoundError":
     case "DevicesNotFoundError":
-      return "No usable camera was found. Connect or enable a camera, then try again.";
+      return t("cameraNotFound");
     case "NotReadableError":
     case "TrackStartError":
     case "AbortError":
-      return "The camera is busy or could not be read. Close other camera apps or tabs, then try again.";
+      return t("cameraBusy");
     case "OverconstrainedError":
     case "ConstraintNotSatisfiedError":
-      return "The camera cannot provide the requested video mode. Try another camera or browser.";
+      return t("cameraModeUnavailable");
     default:
-      return "Camera could not start. Check its connection, browser permission, and other camera apps, then try again.";
+      return t("cameraStartFailed");
   }
 }
 
 export function cameraSupportMessage(): string | null {
   if (!window.isSecureContext) {
-    return "Camera access requires a secure HTTPS page or localhost. Open this demo from its HTTPS classroom link.";
+    return t("cameraRequiresSecure");
   }
   if (!navigator.mediaDevices?.getUserMedia) {
-    return "This browser does not provide the camera API required by the demo. Use a current Chromium, Firefox, or Edge browser.";
+    return t("cameraApiUnavailable");
   }
   return null;
 }
@@ -39,12 +41,10 @@ export function cameraSupportMessage(): string | null {
 export function storageFailureMessage(error: unknown): string {
   const name = errorName(error);
   if (name === "QuotaExceededError") {
-    return "Browser storage is full. Free site storage or disk space, then retry. Existing saved work was not replaced.";
+    return t("storageFull");
   }
   if (name === "SecurityError" || name === "InvalidStateError") {
-    return "Browser storage is blocked or unavailable. Allow site storage and reload before collecting or training.";
+    return t("storageBlocked");
   }
-  return error instanceof Error
-    ? error.message
-    : "Browser storage is unavailable. Check site storage settings and reload.";
+  return error instanceof Error ? translateErrorMessage(error.message) : t("storageUnavailable");
 }
