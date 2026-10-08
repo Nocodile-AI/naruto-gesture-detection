@@ -3,7 +3,7 @@ import { COLLECTION } from "../../src/collection";
 import { FEATURE_SIZE, FEATURE_VERSION } from "../../src/features";
 import { STORAGE_NAME, STORAGE_VERSION } from "../../src/storage";
 
-export const seededDataset = {
+const seededDataset = {
   revision: 1,
   clips: [
     ...Array.from({ length: COLLECTION.minClipsPerClass }, (_, clipIndex) => ({

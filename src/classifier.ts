@@ -1,8 +1,22 @@
 import * as tf from "@tensorflow/tfjs";
 import { FEATURE_SIZE } from "./features";
+import { logDiagnostic, recordMetric } from "./diagnostics";
+
+export function readyToDebugTrain(
+  clips: { label: "clone_sign" | "not_sign"; frames: number[][] }[],
+): boolean {
+  return (["clone_sign", "not_sign"] as const).every((label) =>
+    clips.some(
+      (clip) =>
+        clip.label === label &&
+        clip.frames.length > 0 &&
+        clip.frames.every((frame) => frame.length === FEATURE_SIZE && frame.every(Number.isFinite)),
+    ),
+  );
+}
 
 export const TRAINING_EPOCHS = 50;
-export const TRAINING_BATCH_SIZE = 16;
+const TRAINING_BATCH_SIZE = 16;
 export const AUGMENT_ROTATION_DEGREES = 4;
 
 export interface PreparedTrainingData {
@@ -97,6 +111,9 @@ export async function trainClassifier(
   ];
   tf.util.shuffle(examples);
   await tf.ready();
+  logDiagnostic("tensorflow", "ready", { backend: tf.getBackend() });
+  recordMetric("TensorFlow.js backend", tf.getBackend());
+  logDiagnostic("training", "fit-start", { examples: examples.length, epochs: TRAINING_EPOCHS });
   checkAbort(signal);
 
   const model = tf.sequential();
@@ -146,8 +163,10 @@ export async function trainClassifier(
     });
     checkAbort(signal);
     if (callbackFailed) throw callbackError;
+    logDiagnostic("training", "fit-complete");
     return model;
   } catch (error) {
+    logDiagnostic("training", "fit-failed", error, "error");
     model.dispose();
     throw error;
   } finally {

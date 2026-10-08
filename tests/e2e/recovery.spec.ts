@@ -4,7 +4,7 @@ import { FEATURE_SIZE, FEATURE_VERSION } from "../../src/features";
 import { STORAGE_NAME, STORAGE_VERSION } from "../../src/storage";
 import { seedDataset, trainSeededModel } from "./seed";
 
-test("saved work restores automatically and keyboard reset flow remains usable", async ({
+test("saved work restores automatically and keyboard reset flow remains usable @a11y", async ({
   page,
 }) => {
   await page.goto("/");
@@ -21,9 +21,7 @@ test("saved work restores automatically and keyboard reset flow remains usable",
   await expect(page.locator("#start-over-dialog")).not.toHaveAttribute("open", "");
 });
 
-test("start over clears app work but preserves unrelated browser storage", async ({
-  page,
-}) => {
+test("start over clears app work but preserves unrelated browser storage", async ({ page }) => {
   await page.goto("/");
   await seedDataset(page);
   await page.evaluate(async () => {

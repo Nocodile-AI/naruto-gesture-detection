@@ -31,6 +31,14 @@ Open `http://127.0.0.1:5173/`. Webcam access requires localhost or HTTPS.
 
 Recording uses a one-second lead-in followed by five seconds of capture. Saved examples and the active model restore automatically on the same browser origin.
 
+## Diagnostics
+
+Open the on-page Diagnostics panel to inspect persistent browser-local logs, errors, and live timing metrics without DevTools. Copy diagnostics after reproducing a failure; logs do not record camera frames or gesture examples. Unsupported hardware metrics show as unavailable.
+
+On iPad Safari, first use the Canvas test, then the clone test (a synthetic person, independent of camera and recognition). Next start the camera and reproduce the gesture trigger; the log shows readiness, segmentation, trigger, and rendering stages. These tests isolate failures but do not establish that the Safari issue is fixed.
+
+Debug train uses the same training and save workflow with one valid clip per class, even below normal frame counts. Use Train model for the normal collection requirements.
+
 ## Useful commands
 
 ```sh

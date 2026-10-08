@@ -7,6 +7,7 @@ import {
   rotateGestureFeatures,
   trainClassifier,
   TRAINING_EPOCHS,
+  readyToDebugTrain,
 } from "../src/classifier";
 import { FEATURE_SIZE } from "../src/features";
 
@@ -17,6 +18,17 @@ beforeAll(async () => {
 
 const sample = (value: number) => Array.from({ length: FEATURE_SIZE }, () => value);
 const clips = (...values: number[]) => values.map((value) => [sample(value), sample(value * 0.99)]);
+
+test("debug readiness accepts one valid frame per class and rejects missing or invalid clips", () => {
+  const minimal = [
+    { label: "clone_sign" as const, frames: [sample(1)] },
+    { label: "not_sign" as const, frames: [sample(0)] },
+  ];
+  expect(readyToDebugTrain(minimal)).toBe(true);
+  expect(readyToDebugTrain(minimal.slice(1))).toBe(false);
+  expect(readyToDebugTrain([{ ...minimal[0], frames: [] }, minimal[1]])).toBe(false);
+  expect(readyToDebugTrain([{ ...minimal[0], frames: [[NaN]] }, minimal[1]])).toBe(false);
+});
 
 function constantModel(size = FEATURE_SIZE, activation: "sigmoid" | "linear" = "sigmoid") {
   return tf.sequential({

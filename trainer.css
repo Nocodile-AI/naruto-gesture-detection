@@ -345,3 +345,40 @@ h1 {
     padding: 8px 0 10px;
   }
 }
+
+.diagnostics-panel {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--wa-color-neutral-border-normal, #cbd5e1);
+  border-radius: 8px;
+}
+
+.diagnostics-panel summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.diagnostics-panel summary:focus-visible {
+  outline: 2px solid #ea580c;
+  outline-offset: 4px;
+}
+
+.diagnostics-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.diagnostics-metrics {
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+
+#diagnostics-log {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 6px;
+  resize: vertical;
+  font: 12px monospace;
+}

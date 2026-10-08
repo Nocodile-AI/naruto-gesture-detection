@@ -1,3 +1,4 @@
+import { logDiagnostic, recordMetric } from "./diagnostics";
 import type { Holistic, Results } from "@mediapipe/holistic";
 import { HOLISTIC_BASE } from "./runtime/urls";
 import { cameraFailureMessage, cameraSupportMessage } from "./recovery";
@@ -14,6 +15,9 @@ export class HandCamera {
   private starting = false;
   private stopped: Promise<void> = Promise.resolve();
   private firstResult = false;
+  private firstSend = false;
+  private fpsStarted = 0;
+  private fpsFrames = 0;
   private slowTimer: ReturnType<typeof setTimeout> | null = null;
   private frameProcessor: ((video: HTMLVideoElement) => Promise<void>) | null = null;
   constructor(
@@ -27,7 +31,20 @@ export class HandCamera {
     this.frameProcessor = processor;
   }
   prepare(): Promise<void> {
-    if (!this.modulePromise) this.modulePromise = import("@mediapipe/holistic");
+    if (!this.modulePromise) {
+      logDiagnostic("mediapipe", "holistic-module-loading");
+      this.modulePromise = import("@mediapipe/holistic").then(
+        (module) => {
+          logDiagnostic("mediapipe", "holistic-module-ready");
+          return module;
+        },
+        (error: unknown) => {
+          logDiagnostic("mediapipe", "holistic-module-failed", error, "error");
+          this.modulePromise = null;
+          throw error;
+        },
+      );
+    }
     return this.modulePromise.then(() => undefined);
   }
   private visibility = () => {
@@ -36,6 +53,10 @@ export class HandCamera {
       this.stream.getVideoTracks().forEach((track) => {
         track.enabled = !document.hidden;
       });
+    this.fpsStarted = 0;
+    this.fpsFrames = 0;
+    recordMetric("FPS", null);
+    logDiagnostic("camera", "visibility", { hidden: document.hidden });
     if (document.hidden) {
       cancelAnimationFrame(this.frame);
       this.frame = 0;
@@ -50,6 +71,7 @@ export class HandCamera {
     if (this.active || this.starting) return;
     const support = cameraSupportMessage();
     if (support) {
+      logDiagnostic("camera", "unsupported", { message: support }, "warn");
       this.status(support, false);
       return;
     }
@@ -61,6 +83,7 @@ export class HandCamera {
       // capture pipeline. Yield briefly before requesting the same device again.
       await new Promise<void>((resolve) => setTimeout(resolve, 100));
       this.status("Camera starting...", false);
+      logDiagnostic("camera", "requesting-stream");
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480, facingMode: "user" },
         audio: false,
@@ -72,18 +95,33 @@ export class HandCamera {
       this.stream = stream;
       this.video.srcObject = stream;
       await this.video.play();
+      logDiagnostic("camera", "video-playing", {
+        width: this.video.videoWidth,
+        height: this.video.videoHeight,
+        readyState: this.video.readyState,
+      });
       this.status("Camera ready. Loading hand tracking...", false);
-      if (!this.modulePromise) void this.prepare();
+      if (!this.modulePromise) await this.prepare();
       const modulePromise = this.modulePromise;
       if (!modulePromise) throw new Error("Hand tracking could not initialize.");
       const { Holistic } = await modulePromise;
       if (generation !== this.generation) return;
-      this.detector = new Holistic({ locateFile: (file) => `${HOLISTIC_BASE}/${file}` });
+      this.detector = new Holistic({
+        locateFile: (file) => {
+          const src = `${HOLISTIC_BASE}/${file}`;
+          logDiagnostic("mediapipe", "holistic-resource-request", { src });
+          return src;
+        },
+      });
       this.detector.setOptions({ modelComplexity: 1, smoothLandmarks: true });
       this.detector.onResults((result) => {
         if (!this.active || document.hidden || generation !== this.generation) return;
         if (!this.firstResult) {
           this.firstResult = true;
+          logDiagnostic("mediapipe", "first-hand-result", {
+            rightHand: Boolean(result.rightHandLandmarks),
+            leftHand: Boolean(result.leftHandLandmarks),
+          });
           if (this.slowTimer) clearTimeout(this.slowTimer);
           this.slowTimer = null;
           this.status("Camera running. Show both hands.", true);
@@ -93,6 +131,7 @@ export class HandCamera {
       this.active = true;
       this.slowTimer = setTimeout(() => {
         if (this.active && !this.firstResult) {
+          logDiagnostic("mediapipe", "first-result-delayed", { waitMs: 15000 }, "warn");
           this.status(
             "Hand tracking is taking longer than expected. Close other heavy tabs or try a faster device if it does not recover.",
             false,
@@ -101,6 +140,7 @@ export class HandCamera {
       }, 15000);
       this.schedule();
     } catch (error) {
+      logDiagnostic("camera", "start-failed", error, "error");
       if (generation === this.generation) {
         await this.stop();
         this.status(cameraFailureMessage(error), false);
@@ -117,14 +157,39 @@ export class HandCamera {
       if (!this.active || !detector) return;
       this.pending = (async () => {
         await this.frameProcessor?.(this.video);
-        await detector.send({ image: this.video });
+        const started = performance.now();
+        if (!this.firstSend) {
+          this.firstSend = true;
+          logDiagnostic("mediapipe", "holistic-first-send", {
+            width: this.video.videoWidth,
+            height: this.video.videoHeight,
+            readyState: this.video.readyState,
+          });
+        }
+        try {
+          await detector.send({ image: this.video });
+        } catch (error) {
+          logDiagnostic("mediapipe", "holistic-send-failed", error, "error");
+          throw error;
+        } finally {
+          recordMetric("Hand inference ms", performance.now() - started);
+        }
+        const now = performance.now();
+        this.fpsFrames++;
+        if (!this.fpsStarted) this.fpsStarted = now;
+        if (now - this.fpsStarted >= 1000) {
+          recordMetric("FPS", (this.fpsFrames * 1000) / (now - this.fpsStarted));
+          this.fpsStarted = now;
+          this.fpsFrames = 0;
+        }
       })();
       void this.pending.then(
         () => {
           this.pending = null;
           this.schedule();
         },
-        () => {
+        (error: unknown) => {
+          logDiagnostic("camera", "frame-pipeline-failed", error, "error");
           this.pending = null;
           void this.stop();
           this.status("Hand tracking stopped. Stop and start the camera to try again.", false);
@@ -133,9 +198,14 @@ export class HandCamera {
     });
   }
   stop(): Promise<void> {
+    logDiagnostic("camera", "stopped");
+    this.fpsStarted = 0;
+    this.fpsFrames = 0;
+    recordMetric("FPS", null);
     this.generation++;
     this.active = false;
     this.firstResult = false;
+    this.firstSend = false;
     if (this.slowTimer) clearTimeout(this.slowTimer);
     this.slowTimer = null;
     cancelAnimationFrame(this.frame);
@@ -150,7 +220,11 @@ export class HandCamera {
     const pending = this.pending;
     this.stopped = (async () => {
       await pending?.catch(() => {});
-      await detector?.close().catch(() => {});
+      await detector
+        ?.close()
+        .catch((error: unknown) =>
+          logDiagnostic("mediapipe", "holistic-close-failed", error, "error"),
+        );
     })();
     return this.stopped;
   }

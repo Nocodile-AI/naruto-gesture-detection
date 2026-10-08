@@ -1,4 +1,5 @@
-import { SelfieSegmentation } from "@mediapipe/selfie_segmentation";
+import type { SelfieSegmentation } from "@mediapipe/selfie_segmentation";
+import { logDiagnostic, recordMetric, serializeDiagnostic } from "./diagnostics";
 import { publicUrl } from "./public-url";
 import { SELFIE_SEGMENTATION_BASE } from "./runtime/urls";
 
@@ -28,39 +29,87 @@ const CLONES = [
 
 type Smoke = { x: number; y: number; scale: number; start: number; frames: HTMLImageElement[] };
 
-async function loadImage(src: string): Promise<HTMLImageElement> {
+export async function loadImage(src: string): Promise<HTMLImageElement> {
   const image = new Image();
-  image.src = src;
-  try {
-    await image.decode();
-  } catch {
-    await new Promise<void>((resolve, reject) => {
-      image.addEventListener("load", () => resolve(), { once: true });
-      image.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)), {
-        once: true,
-      });
-    });
-  }
+  logDiagnostic("assets", "image-request", { src });
+  // Register listeners before assigning src: cached loads and early errors must
+  // settle the promise even when decode() is missing or rejects.
+  await new Promise<void>((resolve, reject) => {
+    const cleanup = () => {
+      image.removeEventListener("load", loaded);
+      image.removeEventListener("error", failed);
+    };
+    const loaded = () => {
+      cleanup();
+      if (!image.naturalWidth) reject(new Error(`Image has no pixels: ${src}`));
+      else resolve();
+    };
+    const failed = (event: Event) => {
+      cleanup();
+      reject(new Error(`Failed to load ${src}`, { cause: event }));
+    };
+    image.addEventListener("load", loaded, { once: true });
+    image.addEventListener("error", failed, { once: true });
+    image.src = src;
+    if (image.complete) {
+      if (image.naturalWidth) loaded();
+      else failed(new Event("error"));
+    }
+  }).catch((error: unknown) => {
+    logDiagnostic("assets", "image-failed", { src, error }, "error");
+    throw error;
+  });
+  logDiagnostic("assets", "image-loaded", {
+    src,
+    width: image.naturalWidth,
+    height: image.naturalHeight,
+  });
   return image;
 }
 
 export class CloneEffect {
   private segmentation: SelfieSegmentation | null = null;
+  private segmentationPromise: Promise<void> | null = null;
+  private generation = 0;
   private mask: CanvasImageSource | null = null;
   private personCanvas = document.createElement("canvas");
   private personCtx = this.personCanvas.getContext("2d");
   private smokeFrames = new Map<string, HTMLImageElement[]>();
   private activeSmokes: Smoke[] = [];
   private spawned = CLONES.map(() => false);
-  private startedAt = 0;
+  private startedAt: number | null = null;
   private assetsReady = false;
+  private assetPromise: Promise<void> | null = null;
+  private testMode = false;
+  private lastReadiness = "";
+  private lastSkip = "";
+  private firstDraw = false;
+  private firstSegmentationSend = false;
+  private lastMaskAvailability: boolean | null = null;
+  private renderFailure = "";
 
   constructor(private overlay: HTMLImageElement) {
-    if (!this.personCtx) throw new Error("Canvas 2D context is unavailable.");
+    if (!this.personCtx) {
+      const error = new Error("Canvas 2D context is unavailable.");
+      logDiagnostic("canvas", "context-unavailable", error, "error");
+      throw error;
+    }
+    logDiagnostic("canvas", "clone-context-ready");
   }
 
   async prepareAssets(): Promise<void> {
     if (this.assetsReady) return;
+    if (this.assetPromise) return this.assetPromise;
+    this.assetPromise = this.loadAssets();
+    try {
+      await this.assetPromise;
+    } finally {
+      this.assetPromise = null;
+    }
+  }
+
+  private async loadAssets(): Promise<void> {
+    logDiagnostic("assets", "clone-assets-start");
     for (const folder of SMOKE_FOLDERS) {
       const frames = await Promise.all(
         Array.from({ length: SMOKE_FRAME_COUNT }, (_, index) =>
@@ -69,36 +118,111 @@ export class CloneEffect {
       );
       this.smokeFrames.set(folder, frames);
     }
-    await loadImage(publicUrl("assets/state-2.png"));
+    await Promise.all([
+      loadImage(publicUrl("assets/state-1.png")),
+      loadImage(publicUrl("assets/state-2.png")),
+    ]);
     this.assetsReady = true;
+    logDiagnostic("assets", "clone-assets-ready");
   }
 
-  enableSegmentation(): void {
+  async enableSegmentation(): Promise<void> {
     if (this.segmentation) return;
-    const segmentation = new SelfieSegmentation({
-      locateFile: (file) => `${SELFIE_SEGMENTATION_BASE}/${file}`,
-    });
-    segmentation.setOptions({ modelSelection: 1 });
-    segmentation.onResults((result) => {
-      this.mask = result.segmentationMask;
-    });
-    this.segmentation = segmentation;
+    if (this.segmentationPromise) return this.segmentationPromise;
+    this.segmentationPromise = this.initializeSegmentation();
+    try {
+      await this.segmentationPromise;
+    } finally {
+      this.segmentationPromise = null;
+    }
+  }
+
+  private async initializeSegmentation(): Promise<void> {
+    const generation = this.generation;
+    logDiagnostic("segmentation", "initializing");
+    try {
+      const { SelfieSegmentation } = await import("@mediapipe/selfie_segmentation");
+      if (generation !== this.generation) return;
+      const segmentation = new SelfieSegmentation({
+        locateFile: (file) => {
+          const src = `${SELFIE_SEGMENTATION_BASE}/${file}`;
+          logDiagnostic("segmentation", "resource-request", { src });
+          return src;
+        },
+      });
+      segmentation.setOptions({ modelSelection: 1 });
+      segmentation.onResults((result) => {
+        const available = Boolean(result.segmentationMask);
+        if (this.lastMaskAvailability !== available) {
+          logDiagnostic(
+            "segmentation",
+            this.lastMaskAvailability === null ? "first-mask" : "mask-availability",
+            { available },
+          );
+          this.lastMaskAvailability = available;
+        }
+        this.mask = result.segmentationMask;
+      });
+      this.segmentation = segmentation;
+      logDiagnostic("segmentation", "configured");
+    } catch (error) {
+      logDiagnostic("segmentation", "initialization-failed", error, "error");
+      throw error;
+    }
   }
 
   async process(video: HTMLVideoElement): Promise<void> {
-    await this.segmentation?.send({ image: video });
+    if (!this.segmentation) return;
+    const started = performance.now();
+    if (!this.firstSegmentationSend) {
+      this.firstSegmentationSend = true;
+      logDiagnostic("segmentation", "first-send", {
+        width: video.videoWidth,
+        height: video.videoHeight,
+        readyState: video.readyState,
+      });
+    }
+    try {
+      await this.segmentation.send({ image: video });
+    } catch (error) {
+      logDiagnostic("segmentation", "send-failed", error, "error");
+      throw error;
+    } finally {
+      recordMetric("Segmentation ms", performance.now() - started);
+    }
   }
 
   canStart(): boolean {
+    const readiness = JSON.stringify({
+      assetsReady: this.assetsReady,
+      segmentationEnabled: Boolean(this.segmentation),
+      maskReady: Boolean(this.mask),
+      active: this.isActive(),
+    });
+    if (readiness !== this.lastReadiness) {
+      this.lastReadiness = readiness;
+      logDiagnostic("clone", "readiness", JSON.parse(readiness));
+    }
     return this.assetsReady && Boolean(this.mask);
   }
 
   isActive(): boolean {
-    return this.startedAt > 0;
+    return this.startedAt !== null;
   }
 
   start(now = performance.now()): boolean {
-    if (this.isActive() || !this.canStart()) return false;
+    if (this.isActive() || (!this.testMode && !this.canStart())) {
+      logDiagnostic(
+        "clone",
+        "start-rejected",
+        { active: this.isActive(), assetsReady: this.assetsReady, maskReady: Boolean(this.mask) },
+        "warn",
+      );
+      return false;
+    }
+    this.firstDraw = false;
+    this.lastSkip = "";
+    logDiagnostic("clone", "started", { testMode: this.testMode });
     this.startedAt = now;
     this.spawned.fill(false);
     this.activeSmokes.length = 0;
@@ -107,8 +231,21 @@ export class CloneEffect {
     return true;
   }
 
+  async startTest(now?: number): Promise<boolean> {
+    await this.prepareAssets();
+    if (this.isActive()) return false;
+    this.testMode = true;
+    return this.start(now ?? performance.now());
+  }
+
+  drawTest(ctx: CanvasRenderingContext2D, width: number, height: number): void {
+    this.draw(ctx, this.personCanvas, width, height);
+  }
+
   reset(): void {
-    this.startedAt = 0;
+    if (this.isActive()) logDiagnostic("clone", "reset", { testMode: this.testMode });
+    this.testMode = false;
+    this.startedAt = null;
     this.spawned.fill(false);
     this.activeSmokes.length = 0;
     this.overlay.src = publicUrl("assets/state-1.png");
@@ -117,56 +254,133 @@ export class CloneEffect {
 
   draw(
     ctx: CanvasRenderingContext2D,
-    video: HTMLVideoElement,
+    video: CanvasImageSource,
     width: number,
     height: number,
   ): void {
-    if (!this.isActive() || !this.mask || !this.personCtx) return;
+    try {
+      this.drawFrame(ctx, video, width, height);
+    } catch (error) {
+      const signature = JSON.stringify(serializeDiagnostic(error));
+      if (signature !== this.renderFailure) {
+        this.renderFailure = signature;
+        logDiagnostic(
+          "canvas",
+          "clone-render-failed",
+          { width, height, testMode: this.testMode, error },
+          "error",
+        );
+      }
+      throw error;
+    }
+  }
+
+  private drawFrame(
+    ctx: CanvasRenderingContext2D,
+    video: CanvasImageSource,
+    width: number,
+    height: number,
+  ): void {
+    const skip = !this.isActive()
+      ? "inactive"
+      : !this.testMode && !this.mask
+        ? "mask-unavailable"
+        : !this.personCtx
+          ? "context-unavailable"
+          : width <= 0 || height <= 0
+            ? "invalid-dimensions"
+            : "";
+    if (skip) {
+      if (skip !== this.lastSkip)
+        logDiagnostic("canvas", "clone-render-skipped", { reason: skip }, "warn");
+      this.lastSkip = skip;
+      return;
+    }
+    const renderStarted = performance.now();
     const now = performance.now();
-    const elapsed = now - this.startedAt;
-    if (elapsed >= CLONE_EFFECT_DURATION_MS) return;
+    const elapsed = now - this.startedAt!;
+    if (elapsed >= CLONE_EFFECT_DURATION_MS) {
+      if (this.lastSkip !== "expired")
+        logDiagnostic("canvas", "clone-render-skipped", { reason: "expired", elapsed });
+      this.lastSkip = "expired";
+      return;
+    }
+    const personCtx = this.personCtx!;
 
     const person = this.personCanvas;
     if (person.width !== width || person.height !== height) {
       person.width = width;
       person.height = height;
     }
-    this.personCtx.clearRect(0, 0, width, height);
-    this.personCtx.globalCompositeOperation = "source-over";
-    this.personCtx.drawImage(this.mask, 0, 0, width, height);
-    this.personCtx.globalCompositeOperation = "source-in";
-    this.personCtx.drawImage(video, 0, 0, width, height);
-    this.personCtx.globalCompositeOperation = "source-over";
+    personCtx.clearRect(0, 0, width, height);
+    personCtx.globalCompositeOperation = "source-over";
+    try {
+      if (this.testMode) {
+        personCtx.fillStyle = "#67e8f9";
+        personCtx.beginPath();
+        personCtx.arc(width / 2, height * 0.25, height * 0.09, 0, Math.PI * 2);
+        personCtx.fill();
+        personCtx.fillRect(width * 0.4, height * 0.34, width * 0.2, height * 0.5);
+      } else {
+        personCtx.drawImage(this.mask!, 0, 0, width, height);
+        personCtx.globalCompositeOperation = "source-in";
+        personCtx.drawImage(video, 0, 0, width, height);
+      }
+    } finally {
+      personCtx.globalCompositeOperation = "source-over";
+    }
 
     ctx.save();
-    ctx.translate(width, 0);
-    ctx.scale(-1, 1);
-    for (const [index, clone] of CLONES.entries()) {
-      if (elapsed < clone.delay) continue;
-      if (!this.spawned[index]) {
-        this.spawned[index] = true;
-        const centerX = clone.x + width / 2;
-        const centerY = clone.y + height / 2 - 40;
-        this.spawnSmoke(centerX - 15, centerY, clone.scale, now);
-        this.spawnSmoke(centerX + 15, centerY, clone.scale, now);
+    try {
+      ctx.translate(width, 0);
+      ctx.scale(-1, 1);
+      for (const [index, clone] of CLONES.entries()) {
+        if (elapsed < clone.delay) continue;
+        if (!this.spawned[index]) {
+          this.spawned[index] = true;
+          const centerX = clone.x + width / 2;
+          const centerY = clone.y + height / 2 - 40;
+          this.spawnSmoke(centerX - 15, centerY, clone.scale, now);
+          this.spawnSmoke(centerX + 15, centerY, clone.scale, now);
+        }
+        ctx.save();
+        try {
+          ctx.translate(clone.x + (width * (1 - clone.scale)) / 2, clone.y);
+          ctx.scale(clone.scale, clone.scale);
+          ctx.drawImage(person, 0, 0);
+        } finally {
+          ctx.restore();
+        }
       }
-      ctx.save();
-      ctx.translate(clone.x + (width * (1 - clone.scale)) / 2, clone.y);
-      ctx.scale(clone.scale, clone.scale);
+      this.drawSmokes(ctx, now);
+      if (!this.firstDraw && this.spawned.some(Boolean)) {
+        this.firstDraw = true;
+        logDiagnostic("canvas", "first-clones-rendered", {
+          width,
+          height,
+          testMode: this.testMode,
+        });
+      }
+      // Keep the live segmented person in the foreground, matching the original
+      // rendering stack: background video -> clones/smoke -> real person.
       ctx.drawImage(person, 0, 0);
+    } finally {
       ctx.restore();
     }
-    this.drawSmokes(ctx, now);
-    // Keep the live segmented person in the foreground, matching the original
-    // rendering stack: background video -> clones/smoke -> real person.
-    ctx.drawImage(person, 0, 0);
-    ctx.restore();
+    if (this.renderFailure) {
+      logDiagnostic("canvas", "clone-render-recovered");
+      this.renderFailure = "";
+    }
+    recordMetric("Clone render ms", performance.now() - renderStarted);
   }
 
   private spawnSmoke(x: number, y: number, scale: number, now: number): void {
     const folder = SMOKE_FOLDERS[Math.floor(Math.random() * SMOKE_FOLDERS.length)];
     const frames = this.smokeFrames.get(folder);
-    if (!frames) return;
+    if (!frames) {
+      logDiagnostic("assets", "smoke-skipped", { folder }, "warn");
+      return;
+    }
     this.activeSmokes.push({ x, y, scale: scale * 1.2, start: now, frames });
   }
 
@@ -181,18 +395,26 @@ export class CloneEffect {
       }
       const image = smoke.frames[frameIndex];
       ctx.save();
-      ctx.translate(smoke.x, smoke.y);
-      ctx.scale(smoke.scale, smoke.scale);
-      ctx.drawImage(image, -image.width / 2, -image.height / 2);
-      ctx.restore();
+      try {
+        ctx.translate(smoke.x, smoke.y);
+        ctx.scale(smoke.scale, smoke.scale);
+        ctx.drawImage(image, -image.width / 2, -image.height / 2);
+      } finally {
+        ctx.restore();
+      }
     }
   }
 
   async dispose(): Promise<void> {
+    this.generation++;
     this.reset();
     this.mask = null;
+    this.firstSegmentationSend = false;
+    this.lastMaskAvailability = null;
     const segmentation = this.segmentation;
     this.segmentation = null;
-    await segmentation?.close().catch(() => {});
+    await segmentation
+      ?.close()
+      .catch((error: unknown) => logDiagnostic("segmentation", "close-failed", error, "error"));
   }
 }

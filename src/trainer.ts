@@ -23,7 +23,9 @@ import {
   type ModelRecord,
   type Clip,
 } from "./storage";
-import { trainClassifier, predictScore, TRAINING_EPOCHS } from "./classifier";
+import { trainClassifier, predictScore, TRAINING_EPOCHS, readyToDebugTrain } from "./classifier";
+import { logDiagnostic, recordMetric } from "./diagnostics";
+import { initializeDiagnosticsPanel } from "./diagnostics-panel";
 import { GestureTrigger } from "./trigger";
 import { storageFailureMessage } from "./recovery";
 import { subscribeAppStateChanges } from "./state-sync";
@@ -67,15 +69,46 @@ const say = (id: string, text: string) => {
 
 const video = element<HTMLVideoElement>("trainer-video");
 const canvas = element<HTMLCanvasElement>("trainer-canvas");
+initializeDiagnosticsPanel();
 const ctx = context2d(canvas);
 const cloneEffect = new CloneEffect(element<HTMLImageElement>("effect-overlay"));
+let diagnosticFrame: number | null = null;
+let canvasTestUntil = 0;
+let handsValid: boolean | null = null;
+let lastPredictionGate = "";
+let renderingFailed = false;
+let predictionFailed = false;
+let diagnosticTestGeneration = 0;
+let lastRenderingGate = "";
+
+function stopDiagnosticTest(): void {
+  diagnosticTestGeneration += 1;
+  if (diagnosticFrame !== null) cancelAnimationFrame(diagnosticFrame);
+  diagnosticFrame = null;
+  canvasTestUntil = 0;
+}
+
+function sizeCanvas(width: number, height: number): void {
+  if (canvas.width !== width) canvas.width = width;
+  if (canvas.height !== height) canvas.height = height;
+}
 
 function enableTestingRuntime(): void {
-  cloneEffect.enableSegmentation();
-  camera.setFrameProcessor((frame) => cloneEffect.process(frame));
+  void cloneEffect
+    .enableSegmentation()
+    .then(() => {
+      if (!disposed && !editingExamples)
+        camera.setFrameProcessor((frame) => cloneEffect.process(frame));
+    })
+    .catch((error) => {
+      logDiagnostic("segmentation", "testing-runtime-failed", error, "error");
+      say("practice-status", "Segmentation failed. Open Diagnostics for details.");
+    });
 }
 
 function finishCloneEffect(): void {
+  stopDiagnosticTest();
+  logDiagnostic("clone", "finished");
   if (effectTimer) clearTimeout(effectTimer);
   effectTimer = null;
   cloneEffect.reset();
@@ -85,11 +118,14 @@ function finishCloneEffect(): void {
 }
 
 function startCloneEffect(now: number): void {
+  logDiagnostic("gesture", "clone-start-requested");
   if (!cloneEffect.start(now)) {
+    logDiagnostic("gesture", "clone-start-rejected", undefined, "warn");
     practiceTrigger.arm();
     say("practice-status", "Effect loading.");
     return;
   }
+  logDiagnostic("gesture", "clone-started");
   if (effectTimer) clearTimeout(effectTimer);
   effectTimer = setTimeout(finishCloneEffect, CLONE_EFFECT_DURATION_MS);
   say("practice-status", "Clone sequence active.");
@@ -114,16 +150,47 @@ const camera = new HandCamera(
   video,
   (result) => {
     latest = result ? extractFeatures(result.rightHandLandmarks, result.leftHandLandmarks) : null;
+    const renderingGate = !result
+      ? "no-camera-result"
+      : diagnosticFrame !== null
+        ? "manual-clone-test"
+        : performance.now() < canvasTestUntil
+          ? "manual-canvas-test"
+          : cloneEffect.isActive()
+            ? "clone-effect"
+            : "landmarks";
+    if (renderingGate !== lastRenderingGate) {
+      lastRenderingGate = renderingGate;
+      logDiagnostic("canvas", "render-state", { stage: renderingGate });
+    }
     if (result) {
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      if (cloneEffect.isActive()) cloneEffect.draw(ctx, video, canvas.width, canvas.height);
-      else drawLandmarks(result);
+      sizeCanvas(video.videoWidth || 640, video.videoHeight || 480);
+      const renderStart = performance.now();
+      try {
+        if (diagnosticFrame === null && performance.now() >= canvasTestUntil) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          if (cloneEffect.isActive()) cloneEffect.draw(ctx, video, canvas.width, canvas.height);
+          else drawLandmarks(result);
+        }
+        if (renderingFailed) logDiagnostic("canvas", "render-recovered");
+        renderingFailed = false;
+      } catch (error) {
+        if (!renderingFailed) logDiagnostic("canvas", "render-failed", error, "error");
+        renderingFailed = true;
+      }
+      recordMetric("Render ms", performance.now() - renderStart);
     }
 
+    if (handsValid !== Boolean(latest)) {
+      handsValid = Boolean(latest);
+      logDiagnostic("features", handsValid ? "both-hands-valid" : "missing-or-invalid-hands");
+    }
     if (!latest) {
+      const previousPhase = practiceTrigger.getPhase();
       const triggerState = practiceTrigger.observe(null, performance.now());
+      if (previousPhase !== triggerState.phase || triggerState.released) {
+        logDiagnostic("gesture", "state", { ...triggerState, score: null });
+      }
       clearScore();
       if (triggerState.released && model && !editingExamples) say("practice-status", "");
       return;
@@ -143,15 +210,34 @@ const camera = new HandCamera(
 
     if (now - lastUi < 150) return;
     lastUi = now;
-    if (!model || editingExamples || busy === "training" || busy === "saving") return;
+    const gate = !model
+      ? "no-model"
+      : editingExamples
+        ? "editing-examples"
+        : busy === "training" || busy === "saving"
+          ? busy
+          : "ready";
+    if (gate !== lastPredictionGate) {
+      lastPredictionGate = gate;
+      logDiagnostic("prediction", "readiness", { reason: gate });
+    }
+    if (gate !== "ready" || !model) return;
 
     try {
+      const inferenceStart = performance.now();
       const score = predictScore(model, latest);
+      if (predictionFailed) logDiagnostic("prediction", "recovered");
+      predictionFailed = false;
+      recordMetric("Inference ms", performance.now() - inferenceStart);
       say("conf-label", `${Math.round(score * 100)}%`);
       progress("confidence").value = score * 100;
       if (cloneEffect.isActive()) return;
 
+      const previousPhase = practiceTrigger.getPhase();
       const triggerState = practiceTrigger.observe(score, now);
+      if (previousPhase !== triggerState.phase || triggerState.triggered || triggerState.released) {
+        logDiagnostic("gesture", "state", { ...triggerState, score });
+      }
       if (triggerState.triggered) {
         startCloneEffect(now);
       } else if (triggerState.phase === "holding") {
@@ -161,7 +247,9 @@ const camera = new HandCamera(
       } else {
         say("practice-status", "");
       }
-    } catch {
+    } catch (error) {
+      if (!predictionFailed) logDiagnostic("prediction", "failed", error, "error");
+      predictionFailed = true;
       clearScore();
       say("practice-status", "Prediction failed. Retrain the model.");
     }
@@ -218,6 +306,8 @@ function render(): void {
   button("btn-stop-camera").disabled = !cameraStarted;
   button("btn-train").disabled =
     !idle || interactionBlocked || dirty || storageBlocked || !readyToTrain(dataset.clips);
+  button("btn-debug-train").disabled =
+    !idle || interactionBlocked || dirty || storageBlocked || !readyToDebugTrain(dataset.clips);
   button("btn-save-retry").hidden = !dirty;
   button("btn-save-retry").disabled = !idle || interactionBlocked;
   button("btn-cancel-clip").hidden = busy !== "recording";
@@ -245,6 +335,7 @@ async function persistClips(): Promise<void> {
     dirty = false;
     say("collection-status", "");
   } catch (error) {
+    logDiagnostic("storage", "dataset-save-failed", error, "error");
     dirty = true;
     say("collection-status", `Save failed. ${storageFailureMessage(error)} Retry before training.`);
   } finally {
@@ -362,17 +453,80 @@ button("btn-cancel-clip").addEventListener("click", cancelClip);
 button("btn-save-retry").addEventListener("click", () => void persistClips());
 button("btn-cancel-train").addEventListener("click", () => trainingAbort?.abort());
 button("effect-reset").addEventListener("click", finishCloneEffect);
+button("btn-test-canvas").addEventListener("click", () => {
+  if (cloneEffect.isActive()) finishCloneEffect();
+  stopDiagnosticTest();
+  sizeCanvas(video.videoWidth || 640, video.videoHeight || 480);
+  canvasTestUntil = performance.now() + 3000;
+  try {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#67e8f9";
+    ctx.fillRect(20, 20, canvas.width - 40, canvas.height - 40);
+    ctx.fillStyle = "#111827";
+    ctx.font = "24px sans-serif";
+    ctx.fillText("Canvas test", 40, 60);
+    logDiagnostic("canvas", "manual-test-drawn", { width: canvas.width, height: canvas.height });
+  } catch (error) {
+    logDiagnostic("canvas", "manual-test-failed", error, "error");
+  }
+});
+button("btn-test-clone").addEventListener("click", async () => {
+  finishCloneEffect();
+  const generation = diagnosticTestGeneration;
+  try {
+    if (!(await cloneEffect.startTest())) return;
+    if (disposed || generation !== diagnosticTestGeneration) {
+      cloneEffect.reset();
+      return;
+    }
+    effectTimer = setTimeout(finishCloneEffect, CLONE_EFFECT_DURATION_MS);
+    const endsAt = performance.now() + CLONE_EFFECT_DURATION_MS;
+    render();
+    sizeCanvas(video.videoWidth || 640, video.videoHeight || 480);
+    const draw = () => {
+      try {
+        const started = performance.now();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        cloneEffect.drawTest(ctx, canvas.width, canvas.height);
+        recordMetric("Render ms", performance.now() - started);
+        if (cloneEffect.isActive() && !disposed && performance.now() < endsAt)
+          diagnosticFrame = requestAnimationFrame(draw);
+        else finishCloneEffect();
+      } catch (error) {
+        diagnosticFrame = null;
+        logDiagnostic("clone", "manual-test-render-failed", error, "error");
+        finishCloneEffect();
+      }
+    };
+    diagnosticFrame = requestAnimationFrame(draw);
+  } catch (error) {
+    logDiagnostic("clone", "manual-test-failed", error, "error");
+  }
+});
 button("btn-edit-examples").addEventListener("click", () => {
   if (busy !== "idle" || staleExternal) return;
   if (cloneEffect.isActive()) finishCloneEffect();
+  stopDiagnosticTest();
   editingExamples = true;
   camera.setFrameProcessor(null);
   say("practice-status", "");
   render();
 });
 
-button("btn-train").addEventListener("click", async () => {
-  if (busy !== "idle" || dirty || storageBlocked || !readyToTrain(dataset.clips)) return;
+async function train(debug = false): Promise<void> {
+  if (
+    busy !== "idle" ||
+    staleExternal ||
+    dirty ||
+    storageBlocked ||
+    !(debug ? readyToDebugTrain(dataset.clips) : readyToTrain(dataset.clips))
+  )
+    return;
+  logDiagnostic("training", "requested", {
+    debug,
+    revision: dataset.revision,
+    clips: dataset.clips.length,
+  });
   busy = "training";
   trainingAbort = new AbortController();
   practiceTrigger.arm();
@@ -410,6 +564,7 @@ button("btn-train").addEventListener("click", async () => {
     say("practice-status", "");
     render();
   } catch (error) {
+    logDiagnostic("training", "workflow-failed", error, "error");
     candidate?.dispose();
     const cancelled = error instanceof DOMException && error.name === "AbortError";
     say(
@@ -427,11 +582,14 @@ button("btn-train").addEventListener("click", async () => {
     }
     render();
   }
-});
+}
+button("btn-train").addEventListener("click", () => void train());
+button("btn-debug-train").addEventListener("click", () => void train(true));
 
 async function boot(): Promise<void> {
   void camera.prepare();
   void cloneEffect.prepareAssets().catch((error) => {
+    logDiagnostic("assets", "prepare-failed", error, "error");
     say(
       "practice-status",
       `Effect assets failed to load. ${error instanceof Error ? error.message : ""}`,
@@ -442,6 +600,7 @@ async function boot(): Promise<void> {
     dataset = await loadDataset();
     persistedRevision = dataset.revision;
   } catch (error) {
+    logDiagnostic("storage", "dataset-restore-failed", error, "error");
     storageBlocked = true;
     say(
       "boot-status",
@@ -451,7 +610,8 @@ async function boot(): Promise<void> {
 
   try {
     record = await loadActiveRecord();
-  } catch {
+  } catch (error) {
+    logDiagnostic("storage", "model-metadata-restore-failed", error, "error");
     storageBlocked = true;
     record = null;
     say("train-status", "Saved model data cannot be opened safely. Start over to clear it.");
@@ -474,7 +634,8 @@ async function boot(): Promise<void> {
       practiceTrigger.arm();
       if (!editingExamples) enableTestingRuntime();
       else say("train-status", "Examples changed after this model. Train again.");
-    } catch {
+    } catch (error) {
+      logDiagnostic("storage", "model-restore-failed", error, "error");
       record = null;
       model = null;
       editingExamples = true;
@@ -488,6 +649,7 @@ async function boot(): Promise<void> {
 
 async function markExternalChange(): Promise<void> {
   if (disposed || staleExternal) return;
+  stopDiagnosticTest();
   staleExternal = true;
   trainingAbort?.abort();
   if (recording) cancelClip();
@@ -512,7 +674,8 @@ async function checkStateFreshness(): Promise<void> {
     if (stamp.datasetRevision !== persistedRevision || stamp.modelId !== (record?.id ?? null)) {
       await markExternalChange();
     }
-  } catch {
+  } catch (error) {
+    logDiagnostic("storage", "freshness-check-failed", error, "error");
     await markExternalChange();
   }
 }
@@ -550,6 +713,7 @@ button("btn-confirm-start-over").addEventListener("click", async () => {
     }
     location.reload();
   } catch (error) {
+    logDiagnostic("storage", "reset-failed", error, "error");
     say("boot-status", `Reset failed. ${storageFailureMessage(error)}`);
     busy = "idle";
     render();
@@ -565,6 +729,7 @@ document.addEventListener("visibilitychange", () => {
 
 window.addEventListener("pagehide", () => {
   disposed = true;
+  stopDiagnosticTest();
   unsubscribeStateChanges();
   cancelClip();
   trainingAbort?.abort();
