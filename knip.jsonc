@@ -1,0 +1,5 @@
+{
+  "$schema": "https://unpkg.com/knip/schema.json",
+  // Vite's generated aliases load these browser-global adapters at runtime.
+  "entry": ["src/runtime/holistic.ts", "src/runtime/selfie_segmentation.ts"],
+}

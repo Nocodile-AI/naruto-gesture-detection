@@ -27,11 +27,12 @@
         <section class="camera-panel" aria-labelledby="camera-title">
           <div class="section-heading"><h2 id="camera-title">Camera</h2></div>
           <div class="viewfinder">
-            <video id="trainer-video" autoplay playsinline muted></video>
+            <video id="trainer-video" playsinline muted></video>
             <canvas
               id="trainer-canvas"
               width="640"
               height="480"
+              role="img"
               aria-label="Camera preview with hand tracking and shadow clones"
             ></canvas>
             <span id="viewfinder-note">Camera is off</span>
@@ -76,6 +77,9 @@
             <div class="training-actions">
               <div id="training-primary-actions" class="training-primary-actions">
                 <wa-button id="btn-train" variant="brand" disabled>Train model</wa-button>
+                <wa-button id="btn-debug-train" appearance="outlined" disabled
+                  >Debug train</wa-button
+                >
                 <wa-button id="btn-start-over" variant="danger" appearance="outlined"
                   >Start over</wa-button
                 >
@@ -111,6 +115,28 @@
           </section>
         </aside>
       </div>
+      <details id="diagnostics-panel" class="diagnostics-panel">
+        <summary>Diagnostics</summary>
+        <p>Logs stay in this browser. No camera images or recorded landmarks are included.</p>
+        <p
+          id="diagnostics-metrics"
+          class="diagnostics-metrics"
+          role="group"
+          aria-label="Live performance metrics"
+        ></p>
+        <div class="diagnostics-actions">
+          <wa-button id="btn-test-canvas" appearance="outlined" size="small">Test Canvas</wa-button>
+          <wa-button id="btn-test-clone" appearance="outlined" size="small"
+            >Test clone effect</wa-button
+          >
+          <wa-button id="btn-copy-diagnostics" appearance="outlined" size="small"
+            >Copy logs</wa-button
+          >
+        </div>
+        <p id="diagnostics-status" role="status"></p>
+        <label for="diagnostics-log">Diagnostic history</label>
+        <textarea id="diagnostics-log" readonly spellcheck="false" rows="10"></textarea>
+      </details>
     </main>
 
     <wa-dialog id="start-over-dialog" label="Start over" with-footer>

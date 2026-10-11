@@ -5,6 +5,7 @@ import type { LayersModel } from "@tensorflow/tfjs";
 import { FEATURE_SIZE, FEATURE_VERSION } from "./features";
 import { assertCompatibleModel, predictScore } from "./classifier";
 import { announceAppStateChange } from "./state-sync";
+import { logDiagnostic } from "./diagnostics";
 
 // Keep the pre-rename storage namespace so existing browser-local work remains available.
 export const STORAGE_NAME = "nocodile-browser-ml";
@@ -66,6 +67,7 @@ function parseDataset(value: unknown): Dataset {
   if (!parsed.success)
     throw new Error(
       "Saved samples are corrupt or incompatible with this version. Your saved data was left untouched; use the compatible app version or clear this site's storage to start again.",
+      { cause: parsed.error },
     );
   return parsed.data.dataset;
 }
@@ -75,6 +77,7 @@ function parseModel(value: unknown): ModelRecord | null {
   if (!parsed.success)
     throw new Error(
       "Saved model metadata is corrupt or incompatible. Retrain with this version; the previous saved model was left untouched.",
+      { cause: parsed.error },
     );
   return parsed.data.record;
 }
@@ -86,9 +89,15 @@ async function openStorage() {
   });
 }
 export async function loadDataset(): Promise<Dataset> {
+  logDiagnostic("storage", "dataset-load-start");
   const db = await openStorage();
   try {
-    return parseDataset(await db.get("state", "dataset"));
+    const dataset = parseDataset(await db.get("state", "dataset"));
+    logDiagnostic("storage", "dataset-loaded", {
+      revision: dataset.revision,
+      clips: dataset.clips.length,
+    });
+    return dataset;
   } finally {
     db.close();
   }
@@ -102,6 +111,7 @@ export async function loadActiveRecord(): Promise<ModelRecord | null> {
   }
 }
 export async function saveDataset(dataset: Dataset, expectedRevision: number): Promise<void> {
+  logDiagnostic("storage", "dataset-save-start", { revision: dataset.revision });
   const checked = datasetSchema.parse(dataset);
   if (checked.revision !== expectedRevision + 1)
     throw new Error(
@@ -129,10 +139,12 @@ export async function saveDataset(dataset: Dataset, expectedRevision: number): P
       );
       await tx.done;
       announceAppStateChange("dataset");
+      logDiagnostic("storage", "dataset-saved", { revision: dataset.revision });
     } catch (error) {
       try {
         tx.abort();
-      } catch {
+      } catch (error) {
+        logDiagnostic("storage", "transaction-abort-failed", error, "warn");
         /* Already completed or aborted. */
       }
       await completion;
@@ -199,7 +211,8 @@ export interface ResetPersistenceHooks {
 function resetRevision(value: unknown): number {
   try {
     return parseDataset(value).revision + 1;
-  } catch {
+  } catch (error) {
+    logDiagnostic("storage", "reset-corrupt-dataset", error, "warn");
     // Corrupt/incompatible state still needs an in-app recovery path. A timestamp-sized
     // revision is far beyond normal classroom revisions, so stale tabs cannot match it.
     return Date.now();
@@ -253,11 +266,13 @@ export async function clearAppState(hooks: ResetPersistenceHooks = {}): Promise<
       if (!url.startsWith("indexeddb://nocodile-model-")) continue;
       try {
         await remove(url);
-      } catch {
+      } catch (error) {
+        logDiagnostic("storage", "model-cleanup-failed", error, "warn");
         cleanupFailures += 1;
       }
     }
-  } catch {
+  } catch (error) {
+    logDiagnostic("storage", "model-list-cleanup-failed", error, "warn");
     cleanupFailures += 1;
   }
 
@@ -286,7 +301,8 @@ async function verifySavedModel(url: string): Promise<void> {
 async function removeSavedModel(url: string): Promise<void> {
   try {
     await tf.io.removeModel(url);
-  } catch {
+  } catch (error) {
+    logDiagnostic("storage", "candidate-cleanup-failed", error, "warn");
     // Cleanup is best-effort. The active pointer remains the source of truth.
   }
 }
@@ -314,11 +330,16 @@ export async function publishCandidate(
     createdAt: Date.now(),
   };
 
+  logDiagnostic("storage", "model-save-start", { datasetRevision });
   await model.save(record.url);
+  logDiagnostic("storage", "model-saved");
   try {
     await verify(record.url);
+    logDiagnostic("storage", "model-verified");
     await publishModel(record);
+    logDiagnostic("storage", "model-published", { datasetRevision });
   } catch (error) {
+    logDiagnostic("storage", "model-publication-failed", error, "error");
     await remove(record.url);
     throw error;
   }
