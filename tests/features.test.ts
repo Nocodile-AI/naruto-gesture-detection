@@ -28,22 +28,23 @@ test("versioned features preserve shapes and distinguish inter-hand placement", 
   ).toBeGreaterThan(0.5);
 });
 
+// Alternative: all xy centered at the right wrist and divided by mean scale;
+// z remains local to its own wrist because there is no shared hand-depth origin.
+function shared(right: typeof crossed.right, left: typeof crossed.left) {
+  const scale =
+    (Math.hypot(right[9].x - right[0].x, right[9].y - right[0].y, right[9].z - right[0].z) +
+      Math.hypot(left[9].x - left[0].x, left[9].y - left[0].y, left[9].z - left[0].z)) /
+    2;
+  return [right, left].flatMap((hand) =>
+    hand.flatMap((p) => [
+      (p.x - right[0].x) / scale,
+      (p.y - right[0].y) / scale,
+      (p.z - hand[0].z) / scale,
+    ]),
+  );
+}
+
 test("shared-coordinate candidate retains geometry but couples local shape to hand size", () => {
-  // Alternative: all xy centered at the right wrist and divided by mean scale;
-  // z remains local to its own wrist because there is no shared hand-depth origin.
-  const shared = (right: typeof crossed.right, left: typeof crossed.left) => {
-    const scale =
-      (Math.hypot(right[9].x - right[0].x, right[9].y - right[0].y, right[9].z - right[0].z) +
-        Math.hypot(left[9].x - left[0].x, left[9].y - left[0].y, left[9].z - left[0].z)) /
-      2;
-    return [right, left].flatMap((hand) =>
-      hand.flatMap((p) => [
-        (p.x - right[0].x) / scale,
-        (p.y - right[0].y) / scale,
-        (p.z - hand[0].z) / scale,
-      ]),
-    );
-  };
   expect(
     distance(shared(crossed.right, crossed.left), shared(separated.right, separated.left)),
   ).toBeGreaterThan(3);

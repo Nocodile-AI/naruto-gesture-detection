@@ -31,6 +31,7 @@ export function announceAppStateChange(kind: AppStateChangeKind): void {
   const change = makeChange(kind);
   if (typeof BroadcastChannel !== "undefined") {
     const channel = new BroadcastChannel(SYNC_CHANNEL_NAME);
+    // oxlint-disable-next-line unicorn/require-post-message-target-origin -- BroadcastChannel takes no origin.
     channel.postMessage(change);
     channel.close();
     return;

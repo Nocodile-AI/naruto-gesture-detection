@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import AxeBuilder from "@axe-core/playwright";
+import { AxeBuilder } from "@axe-core/playwright";
 
 test("Canvas and finite clone tests work independently when segmentation CDN is unavailable", async ({
   page,
@@ -9,10 +9,13 @@ test("Canvas and finite clone tests work independently when segmentation CDN is 
   await page.locator("#diagnostics-panel summary").click();
   await page.getByRole("button", { name: "Test Canvas", exact: true }).click();
   expect(
-    await page.locator("#trainer-canvas").evaluate((node) => {
-      const canvas = node as HTMLCanvasElement;
-      return Array.from(canvas.getContext("2d")!.getImageData(30, 30, 1, 1).data);
-    }),
+    await page
+      .locator("#trainer-canvas")
+      .evaluate(
+        (canvas: HTMLCanvasElement) =>
+          Array.from(canvas.getContext("2d")!.getImageData(30, 30, 1, 1).data),
+        undefined,
+      ),
   ).toEqual([103, 232, 249, 255]);
   await expect(page.locator('[data-event="manual-test-drawn"]')).toHaveCount(1);
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -98,10 +101,13 @@ test("expanded diagnostics are accessible and usable on narrow screens with clip
   await expect(page.locator("#diagnostics-status")).toHaveText("Select and copy the log below.");
   await expect(page.locator("#diagnostics-log")).toBeFocused();
   expect(
-    await page.locator("#diagnostics-log").evaluate((node) => {
-      const textarea = node as HTMLTextAreaElement;
-      return textarea.selectionEnd - textarea.selectionStart === textarea.value.length;
-    }),
+    await page
+      .locator("#diagnostics-log")
+      .evaluate(
+        (textarea: HTMLTextAreaElement) =>
+          textarea.selectionEnd - textarea.selectionStart === textarea.value.length,
+        undefined,
+      ),
   ).toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);

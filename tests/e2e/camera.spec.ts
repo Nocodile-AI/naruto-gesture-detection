@@ -17,7 +17,9 @@ async function expectSharedCameraReady(page: import("@playwright/test").Page) {
   await expect
     .poll(
       () =>
-        page.locator("#trainer-canvas").evaluate((canvas) => (canvas as HTMLCanvasElement).width),
+        page
+          .locator("#trainer-canvas")
+          .evaluate((canvas: HTMLCanvasElement) => canvas.width, undefined),
       {
         timeout: 45000,
       },
@@ -76,7 +78,7 @@ test("training pauses tracking but not the video, then reports the run", async (
   await expect(page.locator("#train-status")).toHaveText(/Starting training|Training \d+/);
   await expect(page.locator("#diagnostics-verdict")).toHaveText(/Tracking is paused/);
   const videoTime = () =>
-    page.locator("video").evaluate((node) => (node as HTMLVideoElement).currentTime);
+    page.locator("video").evaluate((video: HTMLVideoElement) => video.currentTime, undefined);
   const playedFrom = await videoTime();
   await expect.poll(videoTime).toBeGreaterThan(playedFrom);
 

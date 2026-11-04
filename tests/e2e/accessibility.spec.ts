@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import AxeBuilder from "@axe-core/playwright";
+import { AxeBuilder } from "@axe-core/playwright";
 import { trainSeededModel } from "./seed";
 
 test.describe("accessibility @a11y", () => {

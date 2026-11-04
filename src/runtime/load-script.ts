@@ -10,11 +10,11 @@ export async function loadScript(src: string): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const script = document.createElement("script");
     script.src = src;
-    script.onload = () => {
+    script.addEventListener("load", () => {
       logDiagnostic("mediapipe", "script-ready", { src });
       resolve();
-    };
-    script.onerror = (event) => {
+    });
+    script.addEventListener("error", (event) => {
       // WebKit reports a load cancelled by a reload as a failed load.
       if (leavingPage) return;
       const error = new Error(`Unable to load vision resource: ${src}. Reload to retry.`, {
@@ -22,7 +22,7 @@ export async function loadScript(src: string): Promise<void> {
       });
       logDiagnostic("mediapipe", "script-failed", { src, error }, "error");
       reject(error);
-    };
+    });
     document.head.append(script);
   });
 }

@@ -25,9 +25,12 @@ export function graphicsChip(): string {
 }
 
 export function downloadSummary() {
-  const files = (performance.getEntriesByType("resource") as PerformanceResourceTiming[]).filter(
-    (file) => file.name.includes(CDN_HOST),
-  );
+  const files = performance
+    .getEntriesByType("resource")
+    .filter(
+      (file): file is PerformanceResourceTiming =>
+        file instanceof PerformanceResourceTiming && file.name.includes(CDN_HOST),
+    );
   if (!files.length) return null;
   return {
     files: files.length,

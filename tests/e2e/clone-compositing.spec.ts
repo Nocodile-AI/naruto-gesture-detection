@@ -1,6 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 import { composePersonLayer } from "../../src/clone-effect";
 
+declare global {
+  interface Window {
+    composePersonLayer: typeof composePersonLayer;
+  }
+}
+
 // Playwright's Windows WebKit has no canvas.captureStream, and off macOS it has no Apple path.
 test.skip(
   ({ browserName }) => browserName === "webkit" && process.platform !== "darwin",
@@ -22,11 +28,11 @@ test.skip(
 //   bun run build && bunx playwright test clone-compositing
 // CI also runs this file on macOS, where WebKit needs no patch.
 function emulateAppleVideoCompositing() {
-  // oxlint-disable-next-line typescript/unbound-method -- called below through apply(this).
-  const drawImage = CanvasRenderingContext2D.prototype.drawImage as (
-    this: CanvasRenderingContext2D,
-    ...args: unknown[]
-  ) => void;
+  const prototype: object = CanvasRenderingContext2D.prototype;
+  const drawImage: (this: CanvasRenderingContext2D, ...args: unknown[]) => void = Reflect.get(
+    prototype,
+    "drawImage",
+  );
   CanvasRenderingContext2D.prototype.drawImage = function (
     this: CanvasRenderingContext2D,
     ...args: unknown[]
@@ -41,7 +47,7 @@ function emulateAppleVideoCompositing() {
 
 // The drawing order from before the fix: mask first, then the video as the source.
 function oldComposePersonLayer(
-  ctx: CanvasRenderingContext2D,
+  ctx: Parameters<typeof composePersonLayer>[0],
   video: CanvasImageSource,
   mask: CanvasImageSource,
   width: number,
@@ -83,13 +89,7 @@ async function samplePersonLayer(page: Page, compose: typeof composePersonLayer)
     person.width = 64;
     person.height = 48;
     const ctx = person.getContext("2d")!;
-    (window as unknown as { composePersonLayer: typeof composePersonLayer }).composePersonLayer(
-      ctx,
-      video,
-      mask,
-      64,
-      48,
-    );
+    window.composePersonLayer(ctx, video, mask, 64, 48);
     clearInterval(painter);
     stream.getTracks().forEach((track) => track.stop());
     return {

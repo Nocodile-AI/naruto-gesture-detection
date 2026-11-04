@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import AxeBuilder from "@axe-core/playwright";
+import { AxeBuilder } from "@axe-core/playwright";
 
 const forbiddenDisplayPunctuation = /[\u2190-\u21ff\u2013\u2014\u2026]/u;
 

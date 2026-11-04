@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import AxeBuilder from "@axe-core/playwright";
+import { AxeBuilder } from "@axe-core/playwright";
 import { FEATURE_SIZE, FEATURE_VERSION } from "../../src/features";
 import { STORAGE_NAME, STORAGE_VERSION } from "../../src/storage";
 import { seedDataset, trainSeededModel } from "./seed";
@@ -28,18 +28,18 @@ test("start over clears app work but preserves unrelated browser storage", async
     localStorage.setItem("unrelated-classroom-setting", "keep-me");
     await new Promise<void>((resolve, reject) => {
       const request = indexedDB.open("unrelated-classroom-db", 1);
-      request.onupgradeneeded = () => request.result.createObjectStore("state");
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => {
+      request.addEventListener("upgradeneeded", () => request.result.createObjectStore("state"));
+      request.addEventListener("error", () => reject(request.error));
+      request.addEventListener("success", () => {
         const db = request.result;
         const tx = db.transaction("state", "readwrite");
         tx.objectStore("state").put("keep-me", "value");
-        tx.oncomplete = () => {
+        tx.addEventListener("complete", () => {
           db.close();
           resolve();
-        };
-        tx.onerror = () => reject(tx.error);
-      };
+        });
+        tx.addEventListener("error", () => reject(tx.error));
+      });
     });
   });
   await page.reload();
@@ -55,16 +55,19 @@ test("start over clears app work but preserves unrelated browser storage", async
     const local = localStorage.getItem("unrelated-classroom-setting");
     const indexed = await new Promise<string | undefined>((resolve, reject) => {
       const request = indexedDB.open("unrelated-classroom-db", 1);
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => {
+      request.addEventListener("error", () => reject(request.error));
+      request.addEventListener("success", () => {
         const db = request.result;
-        const get = db.transaction("state", "readonly").objectStore("state").get("value");
-        get.onsuccess = () => {
+        const get: IDBRequest<string | undefined> = db
+          .transaction("state", "readonly")
+          .objectStore("state")
+          .get("value");
+        get.addEventListener("success", () => {
           db.close();
-          resolve(get.result as string | undefined);
-        };
-        get.onerror = () => reject(get.error);
-      };
+          resolve(get.result);
+        });
+        get.addEventListener("error", () => reject(get.error));
+      });
     });
     return { local, indexed };
   });
@@ -78,12 +81,12 @@ test("corrupt saved samples expose the in-app start-over recovery path", async (
     async ({ storageName, storageVersion, featureVersion, featureSize }) => {
       await new Promise<void>((resolve, reject) => {
         const request = indexedDB.open(storageName, storageVersion);
-        request.onupgradeneeded = () => {
+        request.addEventListener("upgradeneeded", () => {
           if (!request.result.objectStoreNames.contains("state"))
             request.result.createObjectStore("state");
-        };
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => {
+        });
+        request.addEventListener("error", () => reject(request.error));
+        request.addEventListener("success", () => {
           const db = request.result;
           const tx = db.transaction("state", "readwrite");
           tx.objectStore("state").put(
@@ -98,12 +101,12 @@ test("corrupt saved samples expose the in-app start-over recovery path", async (
             },
             "dataset",
           );
-          tx.oncomplete = () => {
+          tx.addEventListener("complete", () => {
             db.close();
             resolve();
-          };
-          tx.onerror = () => reject(tx.error);
-        };
+          });
+          tx.addEventListener("error", () => reject(tx.error));
+        });
       });
     },
     {
@@ -128,12 +131,12 @@ test("corrupt saved-model metadata blocks training and can be cleared in-app", a
     async ({ storageName, storageVersion }) => {
       await new Promise<void>((resolve, reject) => {
         const request = indexedDB.open(storageName, storageVersion);
-        request.onupgradeneeded = () => {
+        request.addEventListener("upgradeneeded", () => {
           if (!request.result.objectStoreNames.contains("state"))
             request.result.createObjectStore("state");
-        };
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => {
+        });
+        request.addEventListener("error", () => reject(request.error));
+        request.addEventListener("success", () => {
           const db = request.result;
           const tx = db.transaction("state", "readwrite");
           const id = "00000000-0000-4000-8000-000000000002";
@@ -151,12 +154,12 @@ test("corrupt saved-model metadata blocks training and can be cleared in-app", a
             },
             "activeModel",
           );
-          tx.oncomplete = () => {
+          tx.addEventListener("complete", () => {
             db.close();
             resolve();
-          };
-          tx.onerror = () => reject(tx.error);
-        };
+          });
+          tx.addEventListener("error", () => reject(tx.error));
+        });
       });
     },
     { storageName: STORAGE_NAME, storageVersion: STORAGE_VERSION },

@@ -79,7 +79,7 @@ describe("browser-local storage boundary", () => {
     await saveDataset(dataset, 0);
     const old = record();
     await publishModel(old);
-    const removeModel = vi.fn(async () => ({}));
+    const removeModel = vi.fn<(url: string) => Promise<unknown>>(async () => ({}));
     const result = await clearAppState({
       listModels: async () => ({
         [old.url]: {},
@@ -114,7 +114,7 @@ describe("browser-local storage boundary", () => {
     await saveDataset(dataset, 0);
     const old = record();
     await publishModel(old);
-    const save: LayersModel["save"] = vi.fn(async () => {
+    const save = vi.fn<LayersModel["save"]>(async () => {
       expect(await loadActiveRecord()).toEqual(old);
       return { modelArtifactsInfo: { dateSaved: new Date(), modelTopologyType: "JSON" as const } };
     });
@@ -127,7 +127,7 @@ describe("browser-local storage boundary", () => {
     await saveDataset(dataset, 0);
     const old = record();
     await publishModel(old);
-    const save: LayersModel["save"] = vi.fn(async () => {
+    const save = vi.fn<LayersModel["save"]>(async () => {
       throw new DOMException("Storage full", "QuotaExceededError");
     });
     await expect(publishCandidate({ save }, 1)).rejects.toThrow("Storage full");
@@ -137,13 +137,13 @@ describe("browser-local storage boundary", () => {
     await saveDataset(dataset, 0);
     const old = record();
     await publishModel(old);
-    const save: LayersModel["save"] = vi.fn(async () => ({
+    const save = vi.fn<LayersModel["save"]>(async () => ({
       modelArtifactsInfo: { dateSaved: new Date(), modelTopologyType: "JSON" as const },
     }));
-    const verifySaved = vi.fn(async () => {
+    const verifySaved = vi.fn<(url: string) => Promise<void>>(async () => {
       throw new Error("Saved candidate is unreadable");
     });
-    const removeSaved = vi.fn(async () => {});
+    const removeSaved = vi.fn<(url: string) => Promise<void>>(async () => {});
     await expect(publishCandidate({ save }, 1, { verifySaved, removeSaved })).rejects.toThrow(
       "unreadable",
     );
@@ -156,7 +156,7 @@ describe("browser-local storage boundary", () => {
     await saveDataset(dataset, 0);
     const old = record();
     await publishModel(old);
-    const save: LayersModel["save"] = vi.fn(async () => {
+    const save = vi.fn<LayersModel["save"]>(async () => {
       await saveDataset({ ...dataset, revision: 2 }, 1);
       return { modelArtifactsInfo: { dateSaved: new Date(), modelTopologyType: "JSON" as const } };
     });
@@ -174,7 +174,7 @@ describe("browser-local storage boundary", () => {
     });
     try {
       await expect(saveDataset({ ...dataset, revision: 2 }, 1)).rejects.toThrow("Storage full");
-      const save: LayersModel["save"] = vi.fn(async () => ({
+      const save = vi.fn<LayersModel["save"]>(async () => ({
         modelArtifactsInfo: { dateSaved: new Date(), modelTopologyType: "JSON" as const },
       }));
       await expect(publishCandidate({ save }, 1, { verifySaved: async () => {} })).rejects.toThrow(

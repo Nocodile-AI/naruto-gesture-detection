@@ -28,6 +28,10 @@ const CLONES = [
   { x: -280, y: 100, scale: 0.4, delay: 3400 },
 ] as const;
 
+type DrawContext = Pick<
+  CanvasRenderingContext2D,
+  "drawImage" | "globalCompositeOperation" | "restore" | "save" | "scale" | "translate"
+>;
 type Smoke = { x: number; y: number; scale: number; start: number; frames: HTMLImageElement[] };
 
 export async function loadImage(src: string): Promise<HTMLImageElement> {
@@ -73,7 +77,7 @@ export async function loadImage(src: string): Promise<HTMLImageElement> {
 // (https://bugs.webkit.org/show_bug.cgi?id=221542), so "source-in" with the video
 // as source paints the whole opaque frame, which then hides the clones and smoke.
 export function composePersonLayer(
-  ctx: CanvasRenderingContext2D,
+  ctx: DrawContext,
   video: CanvasImageSource,
   mask: CanvasImageSource,
   width: number,
@@ -110,7 +114,7 @@ export class CloneEffect {
   private lastMaskAvailability: boolean | null = null;
   private renderFailure = "";
 
-  constructor(private overlay: HTMLImageElement) {
+  constructor(private overlay: Pick<HTMLImageElement, "dataset" | "src">) {
     if (!this.personCtx) {
       const error = new Error("Canvas 2D context is unavailable.");
       logDiagnostic("canvas", "context-unavailable", error, "error");
@@ -260,7 +264,7 @@ export class CloneEffect {
     return this.start(now ?? performance.now());
   }
 
-  drawTest(ctx: CanvasRenderingContext2D, width: number, height: number): void {
+  drawTest(ctx: DrawContext, width: number, height: number): void {
     this.draw(ctx, this.personCanvas, width, height);
   }
 
@@ -274,12 +278,7 @@ export class CloneEffect {
     this.overlay.dataset.state = "1";
   }
 
-  draw(
-    ctx: CanvasRenderingContext2D,
-    video: CanvasImageSource,
-    width: number,
-    height: number,
-  ): void {
+  draw(ctx: DrawContext, video: CanvasImageSource, width: number, height: number): void {
     try {
       this.drawFrame(ctx, video, width, height);
     } catch (error) {
@@ -298,7 +297,7 @@ export class CloneEffect {
   }
 
   private drawFrame(
-    ctx: CanvasRenderingContext2D,
+    ctx: DrawContext,
     video: CanvasImageSource,
     width: number,
     height: number,
@@ -411,7 +410,7 @@ export class CloneEffect {
     this.activeSmokes.push({ x, y, scale: scale * 1.2, start: now, frames });
   }
 
-  private drawSmokes(ctx: CanvasRenderingContext2D, now: number): void {
+  private drawSmokes(ctx: DrawContext, now: number): void {
     const frameDuration = SMOKE_DURATION / SMOKE_FRAME_COUNT;
     for (let index = this.activeSmokes.length - 1; index >= 0; index--) {
       const smoke = this.activeSmokes[index];

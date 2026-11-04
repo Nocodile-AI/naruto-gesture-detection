@@ -12,13 +12,13 @@ test("debug training reuses training and persistence with one frame per class", 
     async ({ name, version }) => {
       await new Promise<void>((resolve, reject) => {
         const request = indexedDB.open(name, version);
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => {
+        request.addEventListener("error", () => reject(request.error));
+        request.addEventListener("success", () => {
           const db = request.result;
           const tx = db.transaction("state", "readwrite");
           const store = tx.objectStore("state");
           const get = store.get("dataset");
-          get.onsuccess = () => {
+          get.addEventListener("success", () => {
             const saved = get.result;
             saved.dataset.clips = [
               saved.dataset.clips[0],
@@ -26,13 +26,13 @@ test("debug training reuses training and persistence with one frame per class", 
             ];
             for (const clip of saved.dataset.clips) clip.frames = clip.frames.slice(0, 1);
             store.put(saved, "dataset");
-          };
-          tx.oncomplete = () => {
+          });
+          tx.addEventListener("complete", () => {
             db.close();
             resolve();
-          };
-          tx.onerror = () => reject(tx.error);
-        };
+          });
+          tx.addEventListener("error", () => reject(tx.error));
+        });
       });
     },
     { name: STORAGE_NAME, version: STORAGE_VERSION },

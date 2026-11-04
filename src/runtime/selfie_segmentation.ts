@@ -2,5 +2,9 @@ import type { SelfieSegmentation as Constructor } from "@mediapipe/selfie_segmen
 import { SELFIE_SEGMENTATION_BASE } from "./urls";
 import { loadScript } from "./load-script";
 await loadScript(`${SELFIE_SEGMENTATION_BASE}/selfie_segmentation.js`);
-export const SelfieSegmentation = (window as unknown as { SelfieSegmentation: typeof Constructor })
-  .SelfieSegmentation;
+declare global {
+  interface Window {
+    SelfieSegmentation: typeof Constructor;
+  }
+}
+export const SelfieSegmentation = window.SelfieSegmentation;

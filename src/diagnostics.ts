@@ -37,7 +37,7 @@ export function serializeDiagnostic(value: unknown, seen = new WeakSet<object>()
   }
   for (const key of keys) {
     try {
-      result[key] = serializeDiagnostic((value as Record<string, unknown>)[key], seen);
+      result[key] = serializeDiagnostic(Reflect.get(value, key), seen);
     } catch {
       result[key] = "[Unreadable property]";
     }

@@ -74,6 +74,18 @@ function augmentTrainingFrames(frames: number[][]): number[][] {
   ]);
 }
 
+function prepareClips(clips: number[][][]): number[][] {
+  const frames: number[][] = [];
+  for (const clip of clips) {
+    if (!clip.length) throw new Error("A training clip has no usable frames.");
+    for (const features of clip) {
+      validateFeatures(features);
+      frames.push([...features]);
+    }
+  }
+  return augmentTrainingFrames(frames);
+}
+
 /** Use every accepted frame from every clip for training. */
 export function prepareTrainingData(
   positiveClips: number[][][],
@@ -83,21 +95,9 @@ export function prepareTrainingData(
     throw new Error("Record examples of both poses before training.");
   }
 
-  const prepare = (clips: number[][][]): number[][] => {
-    const frames: number[][] = [];
-    for (const clip of clips) {
-      if (!clip.length) throw new Error("A training clip has no usable frames.");
-      for (const features of clip) {
-        validateFeatures(features);
-        frames.push([...features]);
-      }
-    }
-    return augmentTrainingFrames(frames);
-  };
-
   return {
-    trainPositive: prepare(positiveClips),
-    trainNegative: prepare(negativeClips),
+    trainPositive: prepareClips(positiveClips),
+    trainNegative: prepareClips(negativeClips),
   };
 }
 

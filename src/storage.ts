@@ -141,8 +141,8 @@ export async function saveDataset(dataset: Dataset, expectedRevision: number): P
     } catch (error) {
       try {
         tx.abort();
-      } catch (error) {
-        logDiagnostic("storage", "transaction-abort-failed", error, "warn");
+      } catch (abortError) {
+        logDiagnostic("storage", "transaction-abort-failed", abortError, "warn");
         /* Already completed or aborted. */
       }
       await completion;

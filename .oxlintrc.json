@@ -10,16 +10,12 @@
     "node": true
   },
   "rules": {
-    "import/no-unassigned-import": "off",
-    "import/no-named-as-default": "off",
-    "import/no-named-as-default-member": "off",
-    "typescript/no-unsafe-type-assertion": "off",
-    "typescript/no-unnecessary-type-parameters": "off",
-    "unicorn/prefer-add-event-listener": "off",
-    "unicorn/consistent-function-scoping": "off",
-    "unicorn/require-post-message-target-origin": "off",
-    "vitest/require-mock-type-parameters": "off",
-    "eslint/no-shadow": "off",
+    "import/no-unassigned-import": [
+      "error",
+      {
+        "allow": ["**/*.css", "fake-indexeddb/auto"]
+      }
+    ],
     "react/react-in-jsx-scope": "off"
   },
   "ignorePatterns": [".agents/**", ".claude/**", ".planning/**", "dist/**", "coverage/**"]

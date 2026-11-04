@@ -209,8 +209,25 @@ export function startupStages(entries: DiagnosticEntry[]): Stage[] {
   ]);
 }
 
+function detail(entry: DiagnosticEntry | undefined, key: string): unknown {
+  const details = entry?.details;
+  return typeof details === "object" && details !== null ? Reflect.get(details, key) : undefined;
+}
+
+function isTrainingRun(details: unknown): details is TrainingRun {
+  return (
+    typeof details === "object" &&
+    details !== null &&
+    "outcome" in details &&
+    typeof details.outcome === "string" &&
+    "examples" in details &&
+    typeof details.examples === "number"
+  );
+}
+
 export function latestTrainingRun(entries: DiagnosticEntry[]): TrainingRun | null {
-  return (findEvent(entries, "training", "run")?.details as TrainingRun | undefined) ?? null;
+  const details = findEvent(entries, "training", "run")?.details;
+  return isTrainingRun(details) ? details : null;
 }
 
 export function trainingStages(run: TrainingRun): Stage[] {
@@ -227,7 +244,7 @@ export function latestCloneStats(entries: DiagnosticEntry[]): CloneStats | null 
     (entry) =>
       entry.stage === "canvas" &&
       entry.event === "first-clones-rendered" &&
-      !(entry.details as { testMode?: boolean } | undefined)?.testMode,
+      !detail(entry, "testMode"),
   );
   if (!rendered) return null;
   const before = session.slice(0, session.indexOf(rendered));
@@ -239,8 +256,11 @@ export function latestCloneStats(entries: DiagnosticEntry[]): CloneStats | null 
     (entry) =>
       entry.stage === "canvas" &&
       entry.event === "render-state" &&
-      (entry.details as { stage?: string } | undefined)?.stage === "clone-effect",
+      detail(entry, "stage") === "clone-effect",
   );
-  const { personCoverage = null } = rendered.details as { personCoverage?: number | null };
-  return { triggerToEffectMs: between(requested, effectStarted), personCoverage };
+  const personCoverage = detail(rendered, "personCoverage");
+  return {
+    triggerToEffectMs: between(requested, effectStarted),
+    personCoverage: typeof personCoverage === "number" ? personCoverage : null,
+  };
 }

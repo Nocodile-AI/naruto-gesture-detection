@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import AxeBuilder from "@axe-core/playwright";
+import { AxeBuilder } from "@axe-core/playwright";
 import { readdir } from "node:fs/promises";
 import { STORAGE_NAME, STORAGE_VERSION } from "../../src/storage";
 import { trainSeededModel } from "./seed";
@@ -62,12 +62,12 @@ test("incompatible saved-model metadata keeps the in-page retraining path", asyn
     async ({ storageName, storageVersion }) => {
       await new Promise<void>((resolve, reject) => {
         const request = indexedDB.open(storageName, storageVersion);
-        request.onupgradeneeded = () => {
+        request.addEventListener("upgradeneeded", () => {
           const db = request.result;
           if (!db.objectStoreNames.contains("state")) db.createObjectStore("state");
-        };
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => {
+        });
+        request.addEventListener("error", () => reject(request.error));
+        request.addEventListener("success", () => {
           const db = request.result;
           const tx = db.transaction("state", "readwrite");
           const id = "00000000-0000-4000-8000-000000000001";
@@ -85,12 +85,12 @@ test("incompatible saved-model metadata keeps the in-page retraining path", asyn
             },
             "activeModel",
           );
-          tx.oncomplete = () => {
+          tx.addEventListener("complete", () => {
             db.close();
             resolve();
-          };
-          tx.onerror = () => reject(tx.error);
-        };
+          });
+          tx.addEventListener("error", () => reject(tx.error));
+        });
       });
     },
     { storageName: STORAGE_NAME, storageVersion: STORAGE_VERSION },

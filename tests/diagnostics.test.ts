@@ -8,15 +8,14 @@ test("diagnostics preserve full errors, stack traces, causes and circular detail
   const error = new Error("segmentation failed", { cause });
   const details: { error: Error; self?: unknown } = { error };
   details.self = details;
-  const serialized = serializeDiagnostic(details) as {
-    error: { message: string; stack: string; cause: { message: string; stack: string } };
-    self: string;
-  };
-  expect(serialized.error.message).toBe(error.message);
-  expect(serialized.error.stack).toBe(error.stack);
-  expect(serialized.error.cause.message).toBe(cause.message);
-  expect(serialized.error.cause.stack).toBe(cause.stack);
-  expect(serialized.self).toBe("[Circular]");
+  expect(serializeDiagnostic(details)).toMatchObject({
+    error: {
+      message: error.message,
+      stack: error.stack,
+      cause: { message: cause.message, stack: cause.stack },
+    },
+    self: "[Circular]",
+  });
 });
 
 test("history survives reload, stays bounded and tolerates unavailable storage", async () => {
@@ -27,8 +26,11 @@ test("history survives reload, stays bounded and tolerates unavailable storage",
     setItem: (key: string, value: string) => saved.set(key, value),
   };
   vi.stubGlobal("localStorage", storage);
-  vi.stubGlobal("window", { addEventListener: vi.fn(), setInterval: vi.fn() });
-  vi.stubGlobal("document", { addEventListener: vi.fn() });
+  vi.stubGlobal("window", {
+    addEventListener: vi.fn<() => void>(),
+    setInterval: vi.fn<() => void>(),
+  });
+  vi.stubGlobal("document", { addEventListener: vi.fn<() => void>() });
   vi.stubGlobal("navigator", { userAgent: "test" });
   let diagnostics = await import("../src/diagnostics");
   diagnostics.initializeDiagnostics();
