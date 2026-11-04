@@ -67,6 +67,27 @@ export async function loadImage(src: string): Promise<HTMLImageElement> {
   return image;
 }
 
+// Draw the video first and mask it second. Safari ignores
+// globalCompositeOperation when the drawImage source is a <video>
+// (https://bugs.webkit.org/show_bug.cgi?id=221542), so "source-in" with the video
+// as source paints the whole opaque frame, which then hides the clones and smoke.
+export function composePersonLayer(
+  ctx: CanvasRenderingContext2D,
+  video: CanvasImageSource,
+  mask: CanvasImageSource,
+  width: number,
+  height: number,
+): void {
+  try {
+    ctx.globalCompositeOperation = "source-over";
+    ctx.drawImage(video, 0, 0, width, height);
+    ctx.globalCompositeOperation = "destination-in";
+    ctx.drawImage(mask, 0, 0, width, height);
+  } finally {
+    ctx.globalCompositeOperation = "source-over";
+  }
+}
+
 export class CloneEffect {
   private segmentation: SelfieSegmentation | null = null;
   private segmentationPromise: Promise<void> | null = null;
@@ -313,21 +334,14 @@ export class CloneEffect {
       person.height = height;
     }
     personCtx.clearRect(0, 0, width, height);
-    personCtx.globalCompositeOperation = "source-over";
-    try {
-      if (this.testMode) {
-        personCtx.fillStyle = "#67e8f9";
-        personCtx.beginPath();
-        personCtx.arc(width / 2, height * 0.25, height * 0.09, 0, Math.PI * 2);
-        personCtx.fill();
-        personCtx.fillRect(width * 0.4, height * 0.34, width * 0.2, height * 0.5);
-      } else {
-        personCtx.drawImage(this.mask!, 0, 0, width, height);
-        personCtx.globalCompositeOperation = "source-in";
-        personCtx.drawImage(video, 0, 0, width, height);
-      }
-    } finally {
-      personCtx.globalCompositeOperation = "source-over";
+    if (this.testMode) {
+      personCtx.fillStyle = "#67e8f9";
+      personCtx.beginPath();
+      personCtx.arc(width / 2, height * 0.25, height * 0.09, 0, Math.PI * 2);
+      personCtx.fill();
+      personCtx.fillRect(width * 0.4, height * 0.34, width * 0.2, height * 0.5);
+    } else {
+      composePersonLayer(personCtx, video, this.mask!, width, height);
     }
 
     ctx.save();
@@ -359,6 +373,7 @@ export class CloneEffect {
           width,
           height,
           testMode: this.testMode,
+          personCoverage: this.personCoverage(width, height),
         });
       }
       // Keep the live segmented person in the foreground, matching the original
@@ -372,6 +387,19 @@ export class CloneEffect {
       this.renderFailure = "";
     }
     recordMetric("Clone render ms", performance.now() - renderStarted);
+  }
+
+  // Fraction of the foreground layer that is opaque. Near 1 means the layer covers
+  // the clones and smoke, which is invisible to every other diagnostic.
+  private personCoverage(width: number, height: number): number | null {
+    try {
+      const { data } = this.personCtx!.getImageData(0, 0, width, height);
+      let opaque = 0;
+      for (let index = 3; index < data.length; index += 4) if (data[index] >= 128) opaque++;
+      return opaque / (width * height);
+    } catch {
+      return null;
+    }
   }
 
   private spawnSmoke(x: number, y: number, scale: number, now: number): void {

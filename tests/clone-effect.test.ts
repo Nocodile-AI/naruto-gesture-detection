@@ -40,6 +40,7 @@ describe("clone asset loading", () => {
   });
 });
 
+import { SelfieSegmentation } from "@mediapipe/selfie_segmentation";
 import { CloneEffect } from "../src/clone-effect";
 import { logDiagnostic } from "../src/diagnostics";
 
@@ -119,4 +120,46 @@ it("restores Canvas transforms after clone rendering throws", async () => {
     expect.objectContaining({ error }),
     "error",
   );
+});
+
+it("masks the live person without drawing the video under a composite mode", async () => {
+  ImmediateImage.fails = false;
+  vi.stubGlobal("Image", ImmediateImage);
+  const personCtx = canvasContext();
+  const draws: [unknown, string][] = [];
+  personCtx.drawImage.mockImplementation((source: unknown) => {
+    draws.push([source, personCtx.globalCompositeOperation]);
+  });
+  vi.stubGlobal("document", {
+    createElement: () => ({ width: 0, height: 0, getContext: () => personCtx }),
+  });
+  let sendResults: (result: { segmentationMask: unknown }) => void = () => {};
+  vi.mocked(SelfieSegmentation).mockImplementation(function () {
+    return {
+      setOptions: vi.fn(),
+      onResults: (listener: typeof sendResults) => {
+        sendResults = listener;
+      },
+    } as unknown as SelfieSegmentation;
+  });
+  const effect = new CloneEffect({ dataset: {}, src: "" } as HTMLImageElement);
+  await effect.prepareAssets();
+  await effect.enableSegmentation();
+  const mask = { name: "mask" };
+  sendResults({ segmentationMask: mask });
+  expect(effect.start(0)).toBe(true);
+  vi.spyOn(performance, "now").mockReturnValue(1500);
+  const video = { name: "video" };
+  effect.draw(
+    canvasContext() as unknown as CanvasRenderingContext2D,
+    video as unknown as CanvasImageSource,
+    640,
+    480,
+  );
+  expect(draws).toEqual([
+    [video, "source-over"],
+    [mask, "destination-in"],
+  ]);
+  expect(personCtx.globalCompositeOperation).toBe("source-over");
+  effect.reset();
 });
