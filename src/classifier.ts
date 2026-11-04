@@ -1,6 +1,6 @@
 import * as tf from "@tensorflow/tfjs";
 import { FEATURE_SIZE } from "./features";
-import { logDiagnostic, recordMetric } from "./diagnostics";
+import { logDiagnostic } from "./diagnostics";
 
 export function readyToDebugTrain(
   clips: { label: "clone_sign" | "not_sign"; frames: number[][] }[],
@@ -112,7 +112,6 @@ export async function trainClassifier(
   tf.util.shuffle(examples);
   await tf.ready();
   logDiagnostic("tensorflow", "ready", { backend: tf.getBackend() });
-  recordMetric("TensorFlow.js backend", tf.getBackend());
   logDiagnostic("training", "fit-start", { examples: examples.length, epochs: TRAINING_EPOCHS });
   checkAbort(signal);
 

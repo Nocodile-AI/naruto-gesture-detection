@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { trainSeededModel } from "./seed";
+import { seedDataset, trainSeededModel } from "./seed";
 
 test.use({
   launchOptions: {
@@ -60,6 +60,35 @@ test("shared camera supports collection stop and restart", async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+test("training pauses tracking but not the video, then reports the run", async ({ page }) => {
+  test.setTimeout(150000);
+  await page.goto("/");
+  await seedDataset(page);
+  await page.reload();
+  await page.locator("#diagnostics-panel summary").click();
+  await page.getByRole("button", { name: "Start camera" }).click();
+  await expectSharedCameraReady(page);
+  await expect(page.locator("#diagnostics-verdict")).toHaveText(/Clones (can|may not) trigger/, {
+    timeout: 30000,
+  });
+
+  await page.getByRole("button", { name: "Train model" }).click();
+  await expect(page.locator("#train-status")).toHaveText(/Starting training|Training \d+/);
+  await expect(page.locator("#diagnostics-verdict")).toHaveText(/Tracking is paused/);
+  const videoTime = () =>
+    page.locator("video").evaluate((node) => (node as HTMLVideoElement).currentTime);
+  const playedFrom = await videoTime();
+  await expect.poll(videoTime).toBeGreaterThan(playedFrom);
+
+  await expect(page.locator("#trained-controls")).toBeVisible({ timeout: 90000 });
+  await expect(page.locator('[data-event="tracking-resumed"]')).toHaveCount(1);
+  await expect(page.locator("#diagnostics-training")).toContainText("Until the first progress");
+  await expect(page.locator("#diagnostics-training-note")).toContainText("Full train with");
+  await expect(page.locator("#diagnostics-verdict")).toHaveText(/Clones (can|may not) trigger/, {
+    timeout: 30000,
+  });
+});
+
 test("trained model uses the same camera for live score and clone runtime", async ({ page }) => {
   test.setTimeout(90000);
   const errors: string[] = [];
@@ -67,7 +96,7 @@ test("trained model uses the same camera for live score and clone runtime", asyn
 
   await trainSeededModel(page);
   await expect(page.locator("video")).toHaveCount(1);
-  await expect(page.locator("canvas")).toHaveCount(1);
+  await expect(page.locator(".viewfinder canvas")).toHaveCount(1);
   await expect(page.locator("#trained-controls")).toBeVisible();
   await page.getByRole("button", { name: "Start camera" }).click();
   await expectSharedCameraReady(page);

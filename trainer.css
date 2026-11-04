@@ -352,28 +352,280 @@ h1 {
   border: 1px solid var(--wa-color-neutral-border-normal, #cbd5e1);
   border-radius: 8px;
 }
-
-.diagnostics-panel summary {
+.diagnostics-panel[open] {
+  padding-bottom: 24px;
+}
+.diagnostics-panel > summary {
   cursor: pointer;
   font-weight: 600;
 }
-
-.diagnostics-panel summary:focus-visible {
-  outline: 2px solid #ea580c;
-  outline-offset: 4px;
+.diagnostics-panel summary:focus-visible,
+.diag-events:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
 }
-
-.diagnostics-actions {
+.diag-flag {
+  float: right;
+  color: var(--color-danger-light);
+  font-variant-numeric: tabular-nums;
+}
+.diag-number {
+  font-variant-numeric: tabular-nums;
+}
+.diag-live {
+  margin-top: 20px;
+}
+.diag-verdict {
+  margin: 0;
+  max-width: 22ch;
+  font-size: clamp(28px, 5vw, 40px);
+  font-weight: 900;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+.diag-verdict[data-tone="idle"] {
+  color: var(--muted);
+}
+.diag-verdict[data-tone="warn"] {
+  color: var(--color-danger-light);
+}
+.diag-verdict[data-tone="warn"]::before {
+  content: "! ";
+}
+.diag-verdict-detail {
+  margin: 8px 0 16px;
+  max-width: 62ch;
+  color: var(--muted);
+}
+.diag-ribbon {
+  display: block;
+  width: 100%;
+  height: 132px;
+  touch-action: pan-y;
+}
+.diag-legend {
   display: flex;
   flex-wrap: wrap;
+  gap: 4px 20px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 15px;
+}
+.diag-legend li {
+  display: flex;
+  margin: 0;
+  align-items: center;
+  gap: 6px;
+}
+.diag-legend .diag-number {
+  font-weight: 700;
+}
+.diag-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+.diag-note {
+  margin: 6px 0 0;
+  max-width: 68ch;
+  font-size: 15px;
+  color: var(--muted);
+}
+.diag-note:empty {
+  display: none;
+}
+.diag-empty {
+  margin: 0;
+  color: var(--muted);
+}
+.diag-warning {
+  margin: 8px 0 0;
+  color: var(--color-danger-light);
+  font-weight: 600;
+}
+.diag-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
 }
-
-.diagnostics-metrics {
+.diag-live > .diag-actions {
+  margin-top: 12px;
+}
+.diag-reports {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px 40px;
+  margin-top: 32px;
+}
+.diag-reports h3,
+.diag-history h3 {
+  margin: 0 0 10px;
+}
+.diag-stage {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 12px;
+  margin-bottom: 8px;
+  font-size: 15px;
+}
+.diag-stage-track {
+  grid-column: 1 / -1;
+  display: block;
+  height: 6px;
+  background: #e2e8f0;
+}
+.diag-stage-bar {
+  display: block;
+  min-width: 2px;
+  height: 100%;
+  background: var(--color-info-light);
+}
+.diag-facts {
+  margin: 0;
+}
+.diag-fact {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 3px 0;
+  font-size: 15px;
+}
+.diag-fact dt {
+  flex: none;
+  color: var(--muted);
+}
+.diag-fact dd {
+  margin: 0;
+  min-width: 0;
   overflow-wrap: anywhere;
+  text-align: right;
+}
+.diag-history {
+  margin-top: 32px;
+}
+.diag-history-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.diag-history-head h3 {
+  margin: 0;
+}
+#diagnostics-status:empty {
+  display: none;
+}
+.diag-events {
+  max-height: 22rem;
+  margin-top: 10px;
+  overflow-y: auto;
+  border-block: 1px solid var(--wa-color-neutral-border-normal, #cbd5e1);
+}
+.diag-events ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.diag-event {
+  margin: 0;
+}
+.diag-events[data-filter="problems"] .diag-event[data-level="info"] {
+  display: none;
+}
+.diag-event-line {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 3px 6px;
   font-size: 14px;
 }
-
+.diag-event details {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+.diag-event summary.diag-event-line {
+  justify-content: flex-start;
+  margin: 0;
+  padding: 3px 6px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  list-style: none;
+}
+.diag-event summary::-webkit-details-marker {
+  display: none;
+}
+.diag-event details[open] {
+  padding: 0;
+}
+.diag-event details[open] summary.diag-event-line {
+  margin: 0;
+}
+.diag-event summary::after {
+  flex: none;
+  width: 0.7rem;
+  height: 0.7rem;
+  margin-inline-start: auto;
+  align-self: center;
+}
+.diag-event summary.diag-event-line:hover {
+  background: #f1f5f9;
+}
+.diag-event time {
+  flex: none;
+  color: var(--muted);
+}
+.diag-event-stage {
+  flex: none;
+  color: var(--muted);
+}
+.diag-event-name {
+  flex: none;
+  font-weight: 600;
+}
+.diag-event-level {
+  flex: none;
+  color: var(--color-danger-light);
+  font-weight: 700;
+}
+.diag-event[data-level="warn"] .diag-event-level {
+  color: var(--color-warning-light);
+}
+.diag-event-preview {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.diag-event[data-event="session started"] .diag-event-line {
+  background: #e2e8f0;
+}
+.diag-event[data-event="session started"] .diag-event-preview {
+  display: none;
+}
+.diag-event pre {
+  max-height: 16rem;
+  margin: 0;
+  padding: 8px 10px;
+  overflow: auto;
+  background: #f1f5f9;
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+#diagnostics-copy-fallback {
+  margin-top: 12px;
+}
+#diagnostics-copy-fallback[hidden] {
+  display: none;
+}
 #diagnostics-log {
   display: block;
   box-sizing: border-box;
@@ -381,4 +633,18 @@ h1 {
   margin-top: 6px;
   resize: vertical;
   font: 12px monospace;
+}
+@media (max-width: 640px) {
+  .diag-reports {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 560px) {
+  .diag-event-line {
+    flex-wrap: wrap;
+    gap: 2px 8px;
+  }
+  .diag-event-preview {
+    flex-basis: 100%;
+  }
 }

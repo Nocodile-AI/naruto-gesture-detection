@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("@mediapipe/selfie_segmentation", () => ({ SelfieSegmentation: vi.fn() }));
 vi.mock("../src/diagnostics", () => ({
   logDiagnostic: vi.fn(),
-  recordMetric: vi.fn(),
   serializeDiagnostic: (value: unknown) =>
     value instanceof Error ? { message: value.message, stack: value.stack } : value,
 }));

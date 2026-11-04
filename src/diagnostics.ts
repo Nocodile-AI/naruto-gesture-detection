@@ -11,7 +11,6 @@ const STORAGE_KEY = "naruto-diagnostics-v1";
 const MAX_ENTRIES = 250;
 const MAX_STORED_CHARS = 500_000;
 let entries: DiagnosticEntry[] = [];
-const metrics: Record<string, number | string | null> = {};
 let initialized = false;
 let dirty = false;
 let persistenceAvailable = true;
@@ -62,16 +61,12 @@ export function logDiagnostic(
   dirty = true;
 }
 
-export function recordMetric(name: string, value: number | string | null): void {
-  metrics[name] = value;
-}
-
 export function getDiagnosticSnapshot() {
-  return { entries: [...entries], metrics: { ...metrics }, persistenceAvailable };
+  return { entries: [...entries], persistenceAvailable };
 }
 
-export function diagnosticText(): string {
-  return JSON.stringify(getDiagnosticSnapshot(), null, 2);
+export function diagnosticText(report?: unknown): string {
+  return JSON.stringify({ ...getDiagnosticSnapshot(), report }, null, 2);
 }
 
 export function flushDiagnostics(): void {
@@ -137,7 +132,11 @@ export function initializeDiagnostics(): void {
     if (document.hidden) flushDiagnostics();
   });
   window.setInterval(flushDiagnostics, 2000);
-  logDiagnostic("diagnostics", "session started", { userAgent: navigator.userAgent });
+  logDiagnostic("diagnostics", "session started", {
+    userAgent: navigator.userAgent,
+    // iPadOS reports a Mac user agent, so touch points are what tell the two apart.
+    maxTouchPoints: navigator.maxTouchPoints,
+  });
 }
 
 initializeDiagnostics();

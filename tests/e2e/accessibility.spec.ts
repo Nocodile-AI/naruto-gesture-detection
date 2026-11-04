@@ -10,7 +10,7 @@ test.describe("accessibility @a11y", () => {
       await expect(page.getByRole("button", { name: "Start camera", exact: true })).toBeEnabled();
       expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
       await page.getByText("Diagnostics", { exact: true }).click();
-      await expect(page.getByLabel("Diagnostic history")).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Event history" })).toBeVisible();
       expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
     });
   }

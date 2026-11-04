@@ -213,12 +213,12 @@ test("trained mode can return to example editing without opening another camera"
   await expect(page.locator("#trained-controls")).toBeVisible();
   await expect(page.locator("#training-controls")).toBeHidden();
   await expect(page.locator("video")).toHaveCount(1);
-  await expect(page.locator("canvas")).toHaveCount(1);
+  await expect(page.locator(".viewfinder canvas")).toHaveCount(1);
 
   await page.getByRole("button", { name: "Edit examples" }).click();
   await expect(page.locator("#training-controls")).toBeVisible();
   await expect(page.locator("#trained-controls")).toBeHidden();
   await expect(page.locator("video")).toHaveCount(1);
-  await expect(page.locator("canvas")).toHaveCount(1);
+  await expect(page.locator(".viewfinder canvas")).toHaveCount(1);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });

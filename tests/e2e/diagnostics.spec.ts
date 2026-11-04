@@ -14,29 +14,16 @@ test("Canvas and finite clone tests work independently when segmentation CDN is 
       return Array.from(canvas.getContext("2d")!.getImageData(30, 30, 1, 1).data);
     }),
   ).toEqual([103, 232, 249, 255]);
-  await expect(page.locator("#diagnostics-log")).toHaveValue(/manual-test-drawn/);
+  await expect(page.locator('[data-event="manual-test-drawn"]')).toHaveCount(1);
   for (let attempt = 0; attempt < 2; attempt++) {
     await page.getByRole("button", { name: "Test clone effect", exact: true }).click();
-    await expect
-      .poll(async () => {
-        const log = JSON.parse(await page.locator("#diagnostics-log").inputValue()) as {
-          entries: { event: string }[];
-        };
-        return log.entries.filter((entry) => entry.event === "first-clones-rendered").length;
-      })
-      .toBe(attempt + 1);
-    await expect
-      .poll(
-        async () => {
-          const log = JSON.parse(await page.locator("#diagnostics-log").inputValue()) as {
-            entries: { stage: string; event: string }[];
-          };
-          return log.entries.filter((entry) => entry.stage === "clone" && entry.event === "reset")
-            .length;
-        },
-        { timeout: 8000 },
-      )
-      .toBe(attempt + 1);
+    await expect(page.locator('[data-event="first-clones-rendered"]')).toHaveCount(attempt + 1);
+    await expect(page.locator('[data-stage="clone"][data-event="reset"]')).toHaveCount(
+      attempt + 1,
+      {
+        timeout: 8000,
+      },
+    );
   }
   await expect(page.getByRole("button", { name: "Start camera", exact: true })).toBeEnabled();
   await expect(page.locator("#count-clone")).toHaveText("0 clips");
@@ -65,19 +52,21 @@ test("production diagnostics capture full nested errors and rejection history ac
       }),
     );
   });
-  const history = page.locator("#diagnostics-log");
-  await expect(history).toHaveValue(/canvas test failure/);
-  const original = JSON.parse(await history.inputValue()) as {
-    entries: { event: string; details: unknown }[];
-  };
-  const uncaught = original.entries.find((entry) => entry.event === "uncaught error");
-  expect(JSON.stringify(uncaught)).toContain("device-test.js");
-  expect(JSON.stringify(uncaught)).toContain("original cause " + "x".repeat(12_000));
-  expect(JSON.stringify(uncaught)).toContain("stack");
+  const uncaught = page.locator('[data-event="uncaught error"]');
+  await expect(uncaught).toContainText("canvas test failure");
+  await expect(page.locator("#diagnostics-flag")).toHaveText("2 errors");
+  await uncaught.locator("summary").click();
+  const details = uncaught.locator("pre");
+  await expect(details).toContainText("device-test.js");
+  await expect(details).toContainText("original cause " + "x".repeat(12_000));
+  await expect(details).toContainText("stack");
   await page.reload();
   await page.locator("#diagnostics-panel summary").click();
-  await expect(history).toHaveValue(/rejection test failure/);
-  await expect(history).toHaveValue(/canvas test failure/);
+  await expect(page.locator('[data-event="unhandled rejection"]')).toContainText(
+    "rejection test failure",
+  );
+  await expect(uncaught).toContainText("canvas test failure");
+  await expect(page.locator("#diagnostics-flag")).toBeHidden();
 });
 
 test("expanded diagnostics are accessible and usable on narrow screens with clipboard unavailable", async ({
@@ -86,8 +75,9 @@ test("expanded diagnostics are accessible and usable on narrow screens with clip
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await page.locator("#diagnostics-panel summary").click();
-  await expect(page.locator("#diagnostics-metrics")).toContainText("GPU utilization: Unavailable");
-  await expect(page.locator("#diagnostics-metrics")).toContainText("TensorFlow.js backend:");
+  await expect(page.locator("#diagnostics-verdict")).toHaveText(/Start the camera/);
+  await expect(page.locator("#diagnostics-device")).toContainText("Model runs on");
+  await expect(page.locator("#diagnostics-training")).toHaveText("Train a model to time this.");
   await page.evaluate(() =>
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined }),
   );

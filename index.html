@@ -116,26 +116,81 @@
         </aside>
       </div>
       <details id="diagnostics-panel" class="diagnostics-panel">
-        <summary>Diagnostics</summary>
-        <p>Logs stay in this browser. No camera images or recorded landmarks are included.</p>
-        <p
-          id="diagnostics-metrics"
-          class="diagnostics-metrics"
-          role="group"
-          aria-label="Live performance metrics"
-        ></p>
-        <div class="diagnostics-actions">
-          <wa-button id="btn-test-canvas" appearance="outlined" size="small">Test Canvas</wa-button>
-          <wa-button id="btn-test-clone" appearance="outlined" size="small"
-            >Test clone effect</wa-button
-          >
-          <wa-button id="btn-copy-diagnostics" appearance="outlined" size="small"
-            >Copy logs</wa-button
-          >
+        <summary>
+          <span>Diagnostics</span>
+          <span id="diagnostics-flag" class="diag-flag" hidden></span>
+        </summary>
+        <section class="diag-live" aria-labelledby="diagnostics-verdict">
+          <h2 id="diagnostics-verdict" class="diag-verdict" data-tone="idle">
+            Start the camera to measure this device.
+          </h2>
+          <p id="diagnostics-verdict-detail" class="diag-verdict-detail"></p>
+          <canvas id="diagnostics-ribbon" class="diag-ribbon" role="img"></canvas>
+          <ul id="diagnostics-legend" class="diag-legend" aria-label="Time spent per frame"></ul>
+          <p id="diagnostics-live-note" class="diag-note"></p>
+          <div class="diag-actions">
+            <wa-button id="btn-test-canvas" appearance="outlined" size="small"
+              >Test Canvas</wa-button
+            >
+            <wa-button id="btn-test-clone" appearance="outlined" size="small"
+              >Test clone effect</wa-button
+            >
+          </div>
+        </section>
+        <div class="diag-reports">
+          <section aria-labelledby="diagnostics-startup-title">
+            <h3 id="diagnostics-startup-title">Startup</h3>
+            <div id="diagnostics-startup"></div>
+            <p id="diagnostics-downloads" class="diag-note"></p>
+          </section>
+          <section aria-labelledby="diagnostics-training-title">
+            <h3 id="diagnostics-training-title">Last training</h3>
+            <div id="diagnostics-training"></div>
+            <p id="diagnostics-training-note" class="diag-note"></p>
+          </section>
+          <section aria-labelledby="diagnostics-clone-title">
+            <h3 id="diagnostics-clone-title">Clone effect</h3>
+            <div id="diagnostics-clone"></div>
+            <p id="diagnostics-clone-note" class="diag-warning" hidden>
+              The person layer covers the frame, so it hides the clones and smoke.
+            </p>
+          </section>
+          <section aria-labelledby="diagnostics-device-title">
+            <h3 id="diagnostics-device-title">This device</h3>
+            <div id="diagnostics-device"></div>
+            <p id="diagnostics-device-note" class="diag-warning" hidden>
+              Graphics are running in software, so tracking and training will be slow.
+            </p>
+          </section>
         </div>
-        <p id="diagnostics-status" role="status"></p>
-        <label for="diagnostics-log">Diagnostic history</label>
-        <textarea id="diagnostics-log" readonly spellcheck="false" rows="10"></textarea>
+        <section class="diag-history" aria-labelledby="diagnostics-history-title">
+          <div class="diag-history-head">
+            <h3 id="diagnostics-history-title">Event history</h3>
+            <div class="diag-actions">
+              <wa-button id="btn-filter-diagnostics" appearance="plain" size="small"></wa-button>
+              <wa-button id="btn-copy-diagnostics" appearance="outlined" size="small"
+                >Copy logs</wa-button
+              >
+            </div>
+          </div>
+          <p class="diag-note">
+            Logs stay in this browser. No camera images or recorded landmarks are included.
+          </p>
+          <p id="diagnostics-status" class="diag-note" role="status"></p>
+          <section
+            id="diagnostics-events"
+            class="diag-events"
+            aria-label="Events, newest first"
+            tabindex="0"
+          >
+            <ol id="diagnostics-event-list"></ol>
+            <p id="diagnostics-events-empty" class="diag-empty" hidden>No problems logged.</p>
+          </section>
+          <div id="diagnostics-copy-fallback" hidden>
+            <label for="diagnostics-log">Log to copy</label>
+            <textarea id="diagnostics-log" readonly spellcheck="false" rows="6"></textarea>
+          </div>
+        </section>
       </details>
     </main>
 

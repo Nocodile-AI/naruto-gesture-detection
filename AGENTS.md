@@ -65,6 +65,8 @@ The neural network is intentionally small:
 
 Do not add a backend training service or a heavier model without a measured reason.
 
+Training pauses hand tracking and segmentation through `camera.setTrackingPaused`; the video keeps playing. They share the main thread, and leaving tracking on made debug training about 16x slower in a Chromium run with software WebGL. Keep the pause unless a measurement says otherwise.
+
 ## Trigger behavior
 
 The current positive threshold is `0.999` to match the original effect's strict trigger behavior.

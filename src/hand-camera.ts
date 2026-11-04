@@ -1,4 +1,5 @@
-import { logDiagnostic, recordMetric } from "./diagnostics";
+import { logDiagnostic } from "./diagnostics";
+import { endFrame, setTrackingState } from "./performance-report";
 import type { Holistic, Results } from "@mediapipe/holistic";
 import { HOLISTIC_BASE } from "./runtime/urls";
 import { cameraFailureMessage, cameraSupportMessage } from "./recovery";
@@ -16,8 +17,7 @@ export class HandCamera {
   private stopped: Promise<void> = Promise.resolve();
   private firstResult = false;
   private firstSend = false;
-  private fpsStarted = 0;
-  private fpsFrames = 0;
+  private trackingPaused = false;
   private slowTimer: ReturnType<typeof setTimeout> | null = null;
   private frameProcessor: ((video: HTMLVideoElement) => Promise<void>) | null = null;
   constructor(
@@ -53,9 +53,7 @@ export class HandCamera {
       this.stream.getVideoTracks().forEach((track) => {
         track.enabled = !document.hidden;
       });
-    this.fpsStarted = 0;
-    this.fpsFrames = 0;
-    recordMetric("FPS", null);
+    setTrackingState(this.trackingPaused ? "paused" : "running");
     logDiagnostic("camera", "visibility", { hidden: document.hidden });
     if (document.hidden) {
       cancelAnimationFrame(this.frame);
@@ -115,7 +113,8 @@ export class HandCamera {
       });
       this.detector.setOptions({ modelComplexity: 1, smoothLandmarks: true });
       this.detector.onResults((result) => {
-        if (!this.active || document.hidden || generation !== this.generation) return;
+        if (!this.active || this.trackingPaused || document.hidden) return;
+        if (generation !== this.generation) return;
         if (!this.firstResult) {
           this.firstResult = true;
           logDiagnostic("mediapipe", "first-hand-result", {
@@ -129,8 +128,9 @@ export class HandCamera {
         this.result(result);
       });
       this.active = true;
+      setTrackingState(this.trackingPaused ? "paused" : "running");
       this.slowTimer = setTimeout(() => {
-        if (this.active && !this.firstResult) {
+        if (this.active && !this.trackingPaused && !this.firstResult) {
           logDiagnostic("mediapipe", "first-result-delayed", { waitMs: 15000 }, "warn");
           this.status(
             "Hand tracking is taking longer than expected. Close other heavy tabs or try a faster device if it does not recover.",
@@ -149,8 +149,24 @@ export class HandCamera {
       this.starting = false;
     }
   }
+  /**
+   * Training and MediaPipe share the main thread. Running both made debug training
+   * about 16x slower in a measured Chromium run. The video keeps playing.
+   */
+  setTrackingPaused(paused: boolean): void {
+    if (this.trackingPaused === paused) return;
+    this.trackingPaused = paused;
+    if (!this.active) return;
+    logDiagnostic("camera", paused ? "tracking-paused" : "tracking-resumed");
+    setTrackingState(paused ? "paused" : "running");
+    cancelAnimationFrame(this.frame);
+    this.frame = 0;
+    if (paused) this.result(null);
+    else this.schedule();
+  }
   private schedule(): void {
-    if (!this.active || this.pending || this.frame || document.hidden) return;
+    if (!this.active || this.trackingPaused || this.pending || this.frame || document.hidden)
+      return;
     this.frame = requestAnimationFrame(() => {
       this.frame = 0;
       const detector = this.detector;
@@ -171,17 +187,8 @@ export class HandCamera {
         } catch (error) {
           logDiagnostic("mediapipe", "holistic-send-failed", error, "error");
           throw error;
-        } finally {
-          recordMetric("Hand inference ms", performance.now() - started);
         }
-        const now = performance.now();
-        this.fpsFrames++;
-        if (!this.fpsStarted) this.fpsStarted = now;
-        if (now - this.fpsStarted >= 1000) {
-          recordMetric("FPS", (this.fpsFrames * 1000) / (now - this.fpsStarted));
-          this.fpsStarted = now;
-          this.fpsFrames = 0;
-        }
+        if (!this.trackingPaused) endFrame(performance.now() - started);
       })();
       void this.pending.then(
         () => {
@@ -199,9 +206,7 @@ export class HandCamera {
   }
   stop(): Promise<void> {
     logDiagnostic("camera", "stopped");
-    this.fpsStarted = 0;
-    this.fpsFrames = 0;
-    recordMetric("FPS", null);
+    setTrackingState("off");
     this.generation++;
     this.active = false;
     this.firstResult = false;

@@ -1,5 +1,6 @@
 import type { SelfieSegmentation } from "@mediapipe/selfie_segmentation";
-import { logDiagnostic, recordMetric, serializeDiagnostic } from "./diagnostics";
+import { logDiagnostic, serializeDiagnostic } from "./diagnostics";
+import { addMaskTime } from "./performance-report";
 import { publicUrl } from "./public-url";
 import { SELFIE_SEGMENTATION_BASE } from "./runtime/urls";
 
@@ -209,7 +210,7 @@ export class CloneEffect {
       logDiagnostic("segmentation", "send-failed", error, "error");
       throw error;
     } finally {
-      recordMetric("Segmentation ms", performance.now() - started);
+      addMaskTime(performance.now() - started);
     }
   }
 
@@ -317,7 +318,6 @@ export class CloneEffect {
       this.lastSkip = skip;
       return;
     }
-    const renderStarted = performance.now();
     const now = performance.now();
     const elapsed = now - this.startedAt!;
     if (elapsed >= CLONE_EFFECT_DURATION_MS) {
@@ -386,7 +386,6 @@ export class CloneEffect {
       logDiagnostic("canvas", "clone-render-recovered");
       this.renderFailure = "";
     }
-    recordMetric("Clone render ms", performance.now() - renderStarted);
   }
 
   // Fraction of the foreground layer that is opaque. Near 1 means the layer covers

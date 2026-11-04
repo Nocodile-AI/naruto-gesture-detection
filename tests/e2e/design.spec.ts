@@ -17,7 +17,7 @@ test("single-camera workflow stays readable and removes duplicate supporting cop
   expect(visibleText).not.toContain("dataset revision");
   await expect(page.locator(".viewfinder")).toHaveCount(1);
   await expect(page.locator("video")).toHaveCount(1);
-  await expect(page.locator("canvas")).toHaveCount(1);
+  await expect(page.locator(".viewfinder canvas")).toHaveCount(1);
   await expect(page.locator(".sample-class").first()).toHaveCSS("border-left-width", "1px");
 
   const tooSmall = await page

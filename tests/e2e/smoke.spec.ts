@@ -12,7 +12,7 @@ test("fresh browser shows one camera and the collection controls", async ({ page
   await expect(page.getByRole("heading", { name: /Train your clone sign/i })).toBeVisible();
   await expect(page.locator(".viewfinder")).toHaveCount(1);
   await expect(page.locator("video")).toHaveCount(1);
-  await expect(page.locator("canvas")).toHaveCount(1);
+  await expect(page.locator(".viewfinder canvas")).toHaveCount(1);
   await expect(page.locator("#training-controls")).toBeVisible();
   await expect(page.locator("#trained-controls")).toBeHidden();
   await expect(page.locator("#model-upload")).toHaveCount(0);

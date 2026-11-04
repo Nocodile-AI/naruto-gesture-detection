@@ -24,9 +24,10 @@ import {
   type Clip,
 } from "./storage";
 import { trainClassifier, predictScore, TRAINING_EPOCHS, readyToDebugTrain } from "./classifier";
-import { logDiagnostic, recordMetric } from "./diagnostics";
+import { logDiagnostic } from "./diagnostics";
+import { addDrawTime, watchFreezes, type TrainingRun } from "./performance-report";
 import { initializeDiagnosticsPanel } from "./diagnostics-panel";
-import { GestureTrigger } from "./trigger";
+import { GestureTrigger, SCORE_INTERVAL_MS } from "./trigger";
 import { storageFailureMessage } from "./recovery";
 import { subscribeAppStateChanges } from "./state-sync";
 import { CloneEffect, CLONE_EFFECT_DURATION_MS } from "./clone-effect";
@@ -178,7 +179,7 @@ const camera = new HandCamera(
         if (!renderingFailed) logDiagnostic("canvas", "render-failed", error, "error");
         renderingFailed = true;
       }
-      recordMetric("Render ms", performance.now() - renderStart);
+      addDrawTime(performance.now() - renderStart);
     }
 
     if (handsValid !== Boolean(latest)) {
@@ -208,7 +209,7 @@ const camera = new HandCamera(
       say("rec-badge", `${recording.frames.length}`);
     }
 
-    if (now - lastUi < 150) return;
+    if (now - lastUi < SCORE_INTERVAL_MS) return;
     lastUi = now;
     const gate = !model
       ? "no-model"
@@ -228,7 +229,7 @@ const camera = new HandCamera(
       const score = predictScore(model, latest);
       if (predictionFailed) logDiagnostic("prediction", "recovered");
       predictionFailed = false;
-      recordMetric("Inference ms", performance.now() - inferenceStart);
+      addDrawTime(performance.now() - inferenceStart);
       say("conf-label", `${Math.round(score * 100)}%`);
       progress("confidence").value = score * 100;
       if (cloneEffect.isActive()) return;
@@ -485,10 +486,8 @@ button("btn-test-clone").addEventListener("click", async () => {
     sizeCanvas(video.videoWidth || 640, video.videoHeight || 480);
     const draw = () => {
       try {
-        const started = performance.now();
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         cloneEffect.drawTest(ctx, canvas.width, canvas.height);
-        recordMetric("Render ms", performance.now() - started);
         if (cloneEffect.isActive() && !disposed && performance.now() < endsAt)
           diagnosticFrame = requestAnimationFrame(draw);
         else finishCloneEffect();
@@ -531,18 +530,33 @@ async function train(debug = false): Promise<void> {
   trainingAbort = new AbortController();
   practiceTrigger.arm();
   clearScore();
+  camera.setTrackingPaused(true);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  progress("training-progress").value = 0;
+  say("train-status", "Starting training...");
   render();
+  const startedAt = performance.now();
+  const stopFreezeWatch = watchFreezes();
+  let firstProgressAt: number | null = null;
+  let fitEndedAt: number | null = null;
+  let savedAt: number | null = null;
+  let outcome: TrainingRun["outcome"] = "failed";
   let candidate: tf.LayersModel | null = null;
   try {
+    // Two frames guarantee one paint of the status above before TensorFlow.js compiles shaders.
+    await tf.nextFrame();
+    await tf.nextFrame();
     candidate = await trainClassifier(
       dataset.clips.filter((clip) => clip.label === "clone_sign").map((clip) => clip.frames),
       dataset.clips.filter((clip) => clip.label === "not_sign").map((clip) => clip.frames),
       (epoch) => {
+        firstProgressAt ??= performance.now();
         say("train-status", `Training ${epoch}/${TRAINING_EPOCHS}`);
         progress("training-progress").value = (epoch / TRAINING_EPOCHS) * 100;
       },
       trainingAbort.signal,
     );
+    fitEndedAt = performance.now();
     if (disposed) {
       candidate.dispose();
       candidate = null;
@@ -553,6 +567,8 @@ async function train(debug = false): Promise<void> {
     render();
     say("train-status", "Saving model...");
     const published = await publishCandidate(candidate, dataset.revision);
+    savedAt = performance.now();
+    outcome = "complete";
     model?.dispose();
     model = candidate;
     candidate = null;
@@ -567,6 +583,7 @@ async function train(debug = false): Promise<void> {
     logDiagnostic("training", "workflow-failed", error, "error");
     candidate?.dispose();
     const cancelled = error instanceof DOMException && error.name === "AbortError";
+    if (cancelled) outcome = "cancelled";
     say(
       "train-status",
       cancelled
@@ -574,6 +591,18 @@ async function train(debug = false): Promise<void> {
         : `Training failed. ${error instanceof Error ? error.message : "Try again."}`,
     );
   } finally {
+    const run: TrainingRun = {
+      debug,
+      examples: dataset.clips.reduce((total, clip) => total + clip.frames.length, 0) * 3,
+      outcome,
+      backend: tf.getBackend(),
+      firstProgressMs: firstProgressAt && firstProgressAt - startedAt,
+      trainMs: firstProgressAt && fitEndedAt && fitEndedAt - firstProgressAt,
+      saveMs: fitEndedAt && savedAt && savedAt - fitEndedAt,
+      longestFreezeMs: stopFreezeWatch(),
+    };
+    logDiagnostic("training", "run", run);
+    camera.setTrackingPaused(false);
     busy = "idle";
     trainingAbort = null;
     if (disposed) {

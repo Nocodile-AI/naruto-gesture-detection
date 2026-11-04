@@ -8,6 +8,9 @@ export const TRIGGER_CONFIG = {
   cooldownMs: 2000,
 } as const;
 
+/** Frames arriving sooner than this reuse the last score. */
+export const SCORE_INTERVAL_MS = 150;
+
 export type TriggerPhase = "armed" | "holding" | "latched" | "release-required";
 
 export interface TriggerSnapshot {
