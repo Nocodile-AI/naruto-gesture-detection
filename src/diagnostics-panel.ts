@@ -417,7 +417,8 @@ export function initializeDiagnosticsPanel(): void {
       freezeWindowStarted = now;
     }
     if (now - cameraRateAt >= 1000) {
-      cameraRate = ((cameraFrames - cameraRateFrames) * 1000) / (now - cameraRateAt);
+      // Safari on iPad may never fire this callback, so zero means unknown.
+      cameraRate = ((cameraFrames - cameraRateFrames) * 1000) / (now - cameraRateAt) || null;
       cameraRateAt = now;
       cameraRateFrames = cameraFrames;
     }
@@ -459,9 +460,9 @@ export function initializeDiagnosticsPanel(): void {
       clone,
       stats
         ? [
-            ...(stats.triggerToCloneMs === null
+            ...(stats.triggerToEffectMs === null
               ? []
-              : ([["Trigger to first clone", formatMs(stats.triggerToCloneMs)]] as [
+              : ([["Trigger to effect start", formatMs(stats.triggerToEffectMs)]] as [
                   string,
                   string,
                 ][])),

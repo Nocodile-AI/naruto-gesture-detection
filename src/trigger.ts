@@ -3,7 +3,8 @@ export const TRIGGER_CONFIG = {
   releaseThreshold: 0.6,
   holdMs: 500,
   minPositivePredictions: 3,
-  maxPositiveGapMs: 250,
+  // Not in the original project, which fires on the first score above its threshold.
+  maxPositiveGapMs: 200,
   releaseMs: 600,
   cooldownMs: 2000,
 } as const;

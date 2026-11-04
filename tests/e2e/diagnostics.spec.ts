@@ -69,6 +69,19 @@ test("production diagnostics capture full nested errors and rejection history ac
   await expect(page.locator("#diagnostics-flag")).toBeHidden();
 });
 
+test("the verdict stays on one line on an iPad", async ({ page }) => {
+  await page.setViewportSize({ width: 1180, height: 820 });
+  await page.goto("/");
+  await page.locator("#diagnostics-panel summary").click();
+  const verdict = page.locator("#diagnostics-verdict");
+  await expect(verdict).toHaveText(/Start the camera/);
+  const { height, lineHeight } = await verdict.evaluate((node) => ({
+    height: node.getBoundingClientRect().height,
+    lineHeight: Number.parseFloat(getComputedStyle(node).lineHeight),
+  }));
+  expect(height).toBeLessThan(lineHeight * 1.5);
+});
+
 test("expanded diagnostics are accessible and usable on narrow screens with clipboard unavailable", async ({
   page,
 }) => {
@@ -76,7 +89,7 @@ test("expanded diagnostics are accessible and usable on narrow screens with clip
   await page.goto("/");
   await page.locator("#diagnostics-panel summary").click();
   await expect(page.locator("#diagnostics-verdict")).toHaveText(/Start the camera/);
-  await expect(page.locator("#diagnostics-device")).toContainText("Model runs on");
+  await expect(page.locator("#diagnostics-device")).toContainText(/Model runs on\s*cpu/);
   await expect(page.locator("#diagnostics-training")).toHaveText("Train a model to time this.");
   await page.evaluate(() =>
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined }),

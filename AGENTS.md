@@ -65,7 +65,9 @@ The neural network is intentionally small:
 
 Do not add a backend training service or a heavier model without a measured reason.
 
-Training pauses hand tracking and segmentation through `camera.setTrackingPaused`; the video keeps playing. They share the main thread, and leaving tracking on made debug training about 16x slower in a Chromium run with software WebGL. Keep the pause unless a measurement says otherwise.
+The model runs on the TensorFlow.js CPU backend. It is too small to gain from WebGL, which froze an iPad for about 10 s while starting training. MediaPipe still uses the GPU.
+
+Training pauses hand tracking and segmentation through `camera.setTrackingPaused`; the video keeps playing. They share the main thread.
 
 ## Trigger behavior
 
@@ -75,7 +77,7 @@ The trigger also requires sustained evidence rather than a single prediction:
 
 - 500 ms positive hold
 - at least 3 positive predictions
-- max 250 ms gap between positive predictions
+- max 200 ms gap between positive predictions
 - release at or below 0.6 for 600 ms
 - 2 second cooldown
 

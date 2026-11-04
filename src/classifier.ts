@@ -15,6 +15,11 @@ export function readyToDebugTrain(
   );
 }
 
+// This model is too small to gain from the GPU. On an iPad Air (5th generation), WebGL froze
+// the page for about 10 s on the first epoch, then took about 45 ms per batch. In Chromium,
+// the CPU backend trained about twice as fast with a real GPU and predicted about 47x faster.
+void tf.setBackend("cpu");
+
 export const TRAINING_EPOCHS = 50;
 const TRAINING_BATCH_SIZE = 16;
 export const AUGMENT_ROTATION_DEGREES = 4;

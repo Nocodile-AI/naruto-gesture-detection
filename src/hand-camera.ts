@@ -150,8 +150,8 @@ export class HandCamera {
     }
   }
   /**
-   * Training and MediaPipe share the main thread. Running both made debug training
-   * about 16x slower in a measured Chromium run. The video keeps playing.
+   * Training and MediaPipe share the main thread, so tracking would slow training
+   * and training would make tracking stutter. The video keeps playing.
    */
   setTrackingPaused(paused: boolean): void {
     if (this.trackingPaused === paused) return;

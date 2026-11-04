@@ -377,8 +377,8 @@ h1 {
 }
 .diag-verdict {
   margin: 0;
-  max-width: 22ch;
-  font-size: clamp(28px, 5vw, 40px);
+  font-size: clamp(19px, 5vw, 38px);
+  text-wrap: balance;
   font-weight: 900;
   line-height: 1.05;
   letter-spacing: -0.03em;

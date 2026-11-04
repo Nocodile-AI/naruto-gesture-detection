@@ -112,9 +112,10 @@ describe("log reports", () => {
   test("clone stats ignore the test button", () => {
     const entries = [
       entry(0, "gesture", "clone-start-requested"),
-      entry(1, "canvas", "first-clones-rendered", { testMode: false, personCoverage: 0.28 }),
+      entry(2, "canvas", "render-state", { stage: "clone-effect" }),
+      entry(3, "canvas", "first-clones-rendered", { testMode: false, personCoverage: 0.28 }),
       entry(5, "canvas", "first-clones-rendered", { testMode: true, personCoverage: 0.1 }),
     ];
-    expect(latestCloneStats(entries)).toEqual({ triggerToCloneMs: 1000, personCoverage: 0.28 });
+    expect(latestCloneStats(entries)).toEqual({ triggerToEffectMs: 2000, personCoverage: 0.28 });
   });
 });

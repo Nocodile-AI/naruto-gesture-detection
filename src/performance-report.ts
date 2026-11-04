@@ -42,7 +42,7 @@ export interface TrainingRun {
 }
 
 export interface CloneStats {
-  triggerToCloneMs: number | null;
+  triggerToEffectMs: number | null;
   personCoverage: number | null;
 }
 
@@ -238,9 +238,17 @@ export function latestCloneStats(entries: DiagnosticEntry[]): CloneStats | null 
       !(entry.details as { testMode?: boolean } | undefined)?.testMode,
   );
   if (!rendered) return null;
-  const requested = session
-    .slice(0, session.indexOf(rendered))
-    .findLast((entry) => entry.stage === "gesture" && entry.event === "clone-start-requested");
+  const before = session.slice(0, session.indexOf(rendered));
+  const requested = before.findLast(
+    (entry) => entry.stage === "gesture" && entry.event === "clone-start-requested",
+  );
+  // The first clone waits 1 s by design, so timing to it would hide the real delay.
+  const effectStarted = before.findLast(
+    (entry) =>
+      entry.stage === "canvas" &&
+      entry.event === "render-state" &&
+      (entry.details as { stage?: string } | undefined)?.stage === "clone-effect",
+  );
   const { personCoverage = null } = rendered.details as { personCoverage?: number | null };
-  return { triggerToCloneMs: between(requested, rendered), personCoverage };
+  return { triggerToEffectMs: between(requested, effectStarted), personCoverage };
 }
