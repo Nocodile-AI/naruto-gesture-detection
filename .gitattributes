@@ -1,0 +1,6 @@
+# Check out text files with LF on every OS. This overrides core.autocrlf, which Git for
+# Windows turns on by default, so oxfmt and CI see the same bytes.
+* text=auto eol=lf
+
+.agents/skills/** linguist-vendored
+.claude/skills/** linguist-vendored
