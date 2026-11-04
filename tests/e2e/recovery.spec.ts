@@ -45,7 +45,9 @@ test("start over clears app work but preserves unrelated browser storage", async
   await page.reload();
 
   await page.getByRole("button", { name: "Start over" }).click();
+  const reloaded = page.waitForEvent("load");
   await page.getByRole("button", { name: "Clear work" }).click();
+  await reloaded;
   await expect(page.locator("#count-clone")).toHaveText("0 clips");
   await expect(page.locator("#count-other")).toHaveText("0 clips");
 
@@ -213,12 +215,12 @@ test("trained mode can return to example editing without opening another camera"
   await expect(page.locator("#trained-controls")).toBeVisible();
   await expect(page.locator("#training-controls")).toBeHidden();
   await expect(page.locator("video")).toHaveCount(1);
-  await expect(page.locator(".viewfinder canvas")).toHaveCount(1);
+  await expect(page.locator("#viewfinder canvas")).toHaveCount(1);
 
   await page.getByRole("button", { name: "Edit examples" }).click();
   await expect(page.locator("#training-controls")).toBeVisible();
   await expect(page.locator("#trained-controls")).toBeHidden();
   await expect(page.locator("video")).toHaveCount(1);
-  await expect(page.locator(".viewfinder canvas")).toHaveCount(1);
+  await expect(page.locator("#viewfinder canvas")).toHaveCount(1);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });

@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "bun run lint:code && bun run lint:html && bun run lint:unused",
     "lint:code": "oxlint --type-aware --deny-warnings src tests *.ts",
-    "lint:html": "html-validate index.html trainer.html",
+    "lint:html": "html-validate index.html",
     "lint:unused": "knip",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
@@ -23,13 +23,15 @@
     "check": "bun run format:check && bun run lint && bun run typecheck && bun run test && bun run build && bun run test:e2e"
   },
   "dependencies": {
-    "@awesome.me/webawesome": "3.14.0",
     "@fontsource/source-sans-pro": "5.3.0",
     "@mediapipe/holistic": "0.5.1675471629",
     "@mediapipe/selfie_segmentation": "0.1.1675465747",
     "@tensorflow/tfjs": "4.22.0",
     "idb": "8.0.4",
-    "zod": "4.6.7"
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "zod": "4.6.7",
+    "zustand": "5.0.16"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",
@@ -37,7 +39,11 @@
     "@playwright/test": "1.64.1",
     "@stryker-mutator/core": "10.1.1",
     "@stryker-mutator/vitest-runner": "10.1.1",
+    "@tailwindcss/vite": "4.3.4",
     "@types/node": "26.6.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.2.1",
     "@vitest/coverage-v8": "5.1.0",
     "fake-indexeddb": "6.2.7",
     "html-validate": "11.18.0",
@@ -45,6 +51,7 @@
     "oxfmt": "0.76.0",
     "oxlint": "1.91.0",
     "oxlint-tsgolint": "7.0.2005",
+    "tailwindcss": "4.3.4",
     "typescript": "7.0.2",
     "vite": "8.3.5",
     "vitest": "5.1.0"

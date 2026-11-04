@@ -10,9 +10,9 @@ test("fresh browser shows one camera and the collection controls", async ({ page
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: /Train your clone sign/i })).toBeVisible();
-  await expect(page.locator(".viewfinder")).toHaveCount(1);
+  await expect(page.locator("#viewfinder")).toHaveCount(1);
   await expect(page.locator("video")).toHaveCount(1);
-  await expect(page.locator(".viewfinder canvas")).toHaveCount(1);
+  await expect(page.locator("#viewfinder canvas")).toHaveCount(1);
   await expect(page.locator("#training-controls")).toBeVisible();
   await expect(page.locator("#trained-controls")).toBeHidden();
   await expect(page.locator("#model-upload")).toHaveCount(0);
@@ -54,13 +54,6 @@ test("training switches the same panel from collection controls to live score", 
     await isolated.close();
   }
   expect(errors).toEqual([]);
-});
-
-test("legacy trainer route redirects to the consolidated workflow", async ({ page }) => {
-  await page.goto("/trainer.html");
-  await expect(page).toHaveURL(/\/#collect$/);
-  await expect(page.getByRole("heading", { name: /Train your clone sign/i })).toBeVisible();
-  await expect(page.locator(".viewfinder")).toHaveCount(1);
 });
 
 test("incompatible saved-model metadata keeps the in-page retraining path", async ({ page }) => {

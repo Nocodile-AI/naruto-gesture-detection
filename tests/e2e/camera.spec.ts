@@ -13,7 +13,7 @@ test.use({
 
 async function expectSharedCameraReady(page: import("@playwright/test").Page) {
   await expect(page.getByRole("button", { name: "Stop camera" })).toBeEnabled({ timeout: 45000 });
-  await expect(page.locator("#viewfinder-note")).toHaveText("", { timeout: 45000 });
+  await expect(page.locator("#viewfinder-note")).toBeHidden({ timeout: 45000 });
   await expect
     .poll(
       () =>
@@ -44,7 +44,7 @@ test("shared camera supports collection stop and restart", async ({ page }) => {
     Object.defineProperty(document, "hidden", { configurable: true, value: false });
     document.dispatchEvent(new Event("visibilitychange"));
   });
-  await expect(page.locator("#viewfinder-note")).toHaveText("", { timeout: 45000 });
+  await expect(page.locator("#viewfinder-note")).toBeHidden({ timeout: 45000 });
 
   await page.getByRole("button", { name: "Stop camera" }).click();
   await expect(page.locator("#viewfinder-note")).toHaveText("Camera is off");
@@ -96,7 +96,7 @@ test("trained model uses the same camera for live score and clone runtime", asyn
 
   await trainSeededModel(page);
   await expect(page.locator("video")).toHaveCount(1);
-  await expect(page.locator(".viewfinder canvas")).toHaveCount(1);
+  await expect(page.locator("#viewfinder canvas")).toHaveCount(1);
   await expect(page.locator("#trained-controls")).toBeVisible();
   await page.getByRole("button", { name: "Start camera" }).click();
   await expectSharedCameraReady(page);

@@ -15,13 +15,13 @@ test("single-camera workflow stays readable and removes duplicate supporting cop
   expect(visibleText).not.toMatch(forbiddenDisplayPunctuation);
   expect(visibleText).not.toContain("BROWSER ONLY");
   expect(visibleText).not.toContain("dataset revision");
-  await expect(page.locator(".viewfinder")).toHaveCount(1);
+  await expect(page.locator("#viewfinder")).toHaveCount(1);
   await expect(page.locator("video")).toHaveCount(1);
-  await expect(page.locator(".viewfinder canvas")).toHaveCount(1);
-  await expect(page.locator(".sample-class").first()).toHaveCSS("border-left-width", "1px");
+  await expect(page.locator("#viewfinder canvas")).toHaveCount(1);
+  await expect(page.locator("article").first()).toHaveCSS("border-left-width", "1px");
 
   const tooSmall = await page
-    .locator(".counts, .status-line, .metric-line, .sync-warning p")
+    .locator("#count-clone, #count-other, [role=status], #sync-status")
     .evaluateAll((nodes) =>
       nodes
         .filter((node) => {

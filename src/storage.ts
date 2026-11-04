@@ -1,3 +1,4 @@
+import { MODEL_URL_PREFIX, STORAGE_NAME } from "./config";
 import { openDB } from "idb";
 import { z } from "zod";
 import * as tf from "@tensorflow/tfjs";
@@ -8,7 +9,7 @@ import { announceAppStateChange } from "./state-sync";
 import { logDiagnostic } from "./diagnostics";
 
 // Keep the pre-rename storage namespace so existing browser-local work remains available.
-export const STORAGE_NAME = "nocodile-browser-ml";
+export { STORAGE_NAME } from "./config";
 export const STORAGE_VERSION = 1;
 const frameSchema = z.array(z.number().finite()).length(FEATURE_SIZE);
 const clipSchema = z.object({
@@ -41,10 +42,7 @@ const modelSchema = z
     featureSize: z.literal(FEATURE_SIZE),
     createdAt: z.number().int().nonnegative(),
   })
-  .refine(
-    (value) => value.url === `indexeddb://nocodile-model-${value.id}`,
-    "Invalid model storage URL",
-  );
+  .refine((value) => value.url === `${MODEL_URL_PREFIX}${value.id}`, "Invalid model storage URL");
 const storedModelSchema = z.object({
   schemaVersion: z.literal(STORAGE_VERSION),
   record: modelSchema,
@@ -263,7 +261,7 @@ export async function clearAppState(hooks: ResetPersistenceHooks = {}): Promise<
     const listed = hooks.listModels ? await hooks.listModels() : await tf.io.listModels();
     const remove = hooks.removeModel ?? ((url: string) => tf.io.removeModel(url));
     for (const url of Object.keys(listed)) {
-      if (!url.startsWith("indexeddb://nocodile-model-")) continue;
+      if (!url.startsWith(MODEL_URL_PREFIX)) continue;
       try {
         await remove(url);
       } catch (error) {
@@ -323,7 +321,7 @@ export async function publishCandidate(
   const id = crypto.randomUUID();
   const record: ModelRecord = {
     id,
-    url: `indexeddb://nocodile-model-${id}`,
+    url: `${MODEL_URL_PREFIX}${id}`,
     datasetRevision,
     featureVersion: FEATURE_VERSION,
     featureSize: FEATURE_SIZE,

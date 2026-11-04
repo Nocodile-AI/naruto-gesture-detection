@@ -1,3 +1,5 @@
+import { DIAGNOSTICS_STORAGE_KEY } from "./config";
+
 export type DiagnosticLevel = "info" | "warn" | "error";
 export interface DiagnosticEntry {
   time: string;
@@ -7,7 +9,6 @@ export interface DiagnosticEntry {
   details?: unknown;
 }
 
-const STORAGE_KEY = "naruto-diagnostics-v1";
 const MAX_ENTRIES = 250;
 const MAX_STORED_CHARS = 500_000;
 let entries: DiagnosticEntry[] = [];
@@ -77,7 +78,7 @@ export function flushDiagnostics(): void {
       entries.shift();
       serialized = JSON.stringify(entries);
     }
-    localStorage.setItem(STORAGE_KEY, serialized);
+    localStorage.setItem(DIAGNOSTICS_STORAGE_KEY, serialized);
     persistenceAvailable = true;
     dirty = false;
   } catch (error) {
@@ -91,7 +92,7 @@ export function initializeDiagnostics(): void {
   if (initialized || typeof window === "undefined") return;
   initialized = true;
   try {
-    const saved: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
+    const saved: unknown = JSON.parse(localStorage.getItem(DIAGNOSTICS_STORAGE_KEY) ?? "[]");
     if (Array.isArray(saved)) {
       const restored = saved.filter(
         (item): item is DiagnosticEntry =>

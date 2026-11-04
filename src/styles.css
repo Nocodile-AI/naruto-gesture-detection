@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans:
+    "Source Sans Pro", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+
+  --color-ink: #0f172a;
+  --color-muted: #475569;
+  --color-paper: #f8fafc;
+  --color-surface: #ffffff;
+  --color-line: #64748b;
+  --color-brand: #c2410c;
+  --color-brand-dark: #9a3412;
+  --color-info: #075985;
+  --color-warning: #92400e;
+  --color-danger: #b91c1c;
+
+  --radius-card: 0.375rem;
+  --radius-control: 0.25rem;
+}
+
+:root {
+  color-scheme: light;
+  /* Keeps Start camera on screen: the page chrome around the 4:3 camera view takes 176px. */
+  --camera-max-width: max(240px, calc((100svh - 176px) * 4 / 3));
+}
+
+@layer base {
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+  }
+  h2 {
+    font-size: 20px;
+    font-weight: 700;
+  }
+  h3 {
+    font-size: 18px;
+    font-weight: 700;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-info);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

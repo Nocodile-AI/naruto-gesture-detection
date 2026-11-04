@@ -1,4 +1,6 @@
 import { fileURLToPath } from "node:url";
+import tailwindcss from "@tailwindcss/vite";
+import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 function normalizeBasePath(basePath: string | undefined): string {
@@ -9,6 +11,7 @@ function normalizeBasePath(basePath: string | undefined): string {
 
 export default defineConfig({
   base: normalizeBasePath(process.env.PAGES_BASE_PATH),
+  plugins: [react(), tailwindcss()],
   resolve: {
     alias: Object.fromEntries(
       ["holistic", "selfie_segmentation"].map((name) => [
@@ -23,6 +26,5 @@ export default defineConfig({
   },
   build: {
     target: "es2022",
-    rollupOptions: { input: { main: "index.html", trainer: "trainer.html" } },
   },
 });

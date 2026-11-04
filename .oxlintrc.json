@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["typescript", "unicorn", "import", "vitest"],
+  "plugins": ["typescript", "unicorn", "import", "vitest", "react"],
   "categories": {
     "correctness": "error",
     "suspicious": "warn"
@@ -19,7 +19,8 @@
     "unicorn/consistent-function-scoping": "off",
     "unicorn/require-post-message-target-origin": "off",
     "vitest/require-mock-type-parameters": "off",
-    "eslint/no-shadow": "off"
+    "eslint/no-shadow": "off",
+    "react/react-in-jsx-scope": "off"
   },
   "ignorePatterns": [".agents/**", ".claude/**", ".planning/**", "dist/**", "coverage/**"]
 }

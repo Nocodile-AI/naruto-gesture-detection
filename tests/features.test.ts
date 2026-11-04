@@ -1,6 +1,5 @@
 import { expect, test } from "vitest";
 import { extractFeatures, FEATURE_SIZE, FEATURE_VERSION } from "../src/features";
-import { extract as legacyExtract } from "../src/legacy-features";
 import {
   crossed,
   separated,
@@ -24,12 +23,6 @@ test("versioned features preserve shapes and distinguish inter-hand placement", 
   expect(positive.every(Number.isFinite)).toBe(true);
   expect(distance(positive.slice(0, 126), negative.slice(0, 126))).toBeLessThan(1e-12);
   expect(distance(positive, negative)).toBeGreaterThan(3);
-  expect(
-    distance(
-      legacyExtract(crossed.right, crossed.left),
-      legacyExtract(separated.right, separated.left),
-    ),
-  ).toBeLessThan(1e-12);
   expect(
     distance(positive, extractFeatures(almostCorrect.right, almostCorrect.left)!),
   ).toBeGreaterThan(0.5);

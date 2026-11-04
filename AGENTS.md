@@ -14,9 +14,10 @@ The normal path must not require downloading or re-uploading a model. User data 
 
 The application lives at the repository root.
 
-- `index.html` is the main app.
-- `trainer.html` is a compatibility redirect to the main app.
-- `src/trainer.ts` coordinates collection, training, persistence, testing, and effect state.
+- `index.html` loads `src/main.tsx`, which renders the React app.
+- `src/components/` contains the React components and `src/styles.css` the Tailwind theme.
+- `src/app/store.ts` is the Zustand store the components read. `src/app/` also coordinates the camera frame loop (`vision.ts`), collection (`recording.ts`), training (`training.ts`), and startup, cross-tab, and reset behavior (`lifecycle.ts`).
+- `src/config.ts` holds the names this app stores in the browser.
 - `src/hand-camera.ts` owns the single webcam stream and shared video/canvas loop.
 - `src/features.ts` defines the current model input schema.
 - `src/classifier.ts` defines training and prediction.
@@ -32,6 +33,8 @@ The application lives at the repository root.
 Keep the application browser-only unless a concrete product requirement demands a backend.
 
 There is one shared webcam stream, one video element, and one canvas. Training, live prediction, MediaPipe Holistic, Selfie Segmentation, and the clone effect must reuse that camera path rather than opening independent camera streams.
+
+Camera frames, canvas drawing, and MediaPipe stay imperative in `src/app/vision.ts` and never go through React. Frames update the store only with values the page shows, and components select single fields, so a new score re-renders only the score meter.
 
 MediaPipe scripts and runtime assets load from version-pinned jsDelivr URLs in `src/runtime/urls.ts`. Keep those versions aligned with the npm packages. Do not restore generated `public/vendor/` assets; deployments depend on CDN availability at runtime.
 
@@ -111,9 +114,9 @@ Cross-tab state changes should fail safely rather than allowing two tabs to over
 
 Desktop uses a camera-first two-column layout: camera on the left, examples/training or score controls on the right. Narrow screens stack to one column.
 
-Keep the workflow compact enough that primary controls are visible without unnecessary scrolling on typical laptop screens.
+Keep the workflow compact enough that primary controls are visible without unnecessary scrolling on typical laptop screens. The camera view's maximum width comes from the window height (`--camera-max-width` in `src/styles.css`), so Start camera stays on screen with browser bars. `tests/e2e/viewport.spec.ts` checks this.
 
-Use Web Awesome components for interactive controls already represented by that library. Preserve keyboard focus states and reduced-motion support.
+Use the native button, dialog, details, and progress elements through `src/components/ui.tsx`, styled with Tailwind. Preserve keyboard focus states and reduced-motion support.
 
 Destructive actions should look destructive and should not visually compete with the primary workflow action.
 

@@ -1,3 +1,5 @@
+import { SYNC_CHANNEL_NAME, SYNC_STORAGE_KEY } from "./config";
+
 export type AppStateChangeKind = "dataset" | "model" | "reset";
 
 export interface AppStateChange {
@@ -8,9 +10,6 @@ export interface AppStateChange {
 }
 
 const TAB_ID = crypto.randomUUID();
-// These pre-rename wire identifiers keep old and newly deployed tabs coordinated.
-const CHANNEL_NAME = "nocodile-browser-ml-sync";
-const STORAGE_KEY = "__nocodile_browser_ml_sync__";
 
 function makeChange(kind: AppStateChangeKind): AppStateChange {
   return { id: crypto.randomUUID(), source: TAB_ID, kind, at: Date.now() };
@@ -31,14 +30,14 @@ export function announceAppStateChange(kind: AppStateChangeKind): void {
   if (typeof window === "undefined") return;
   const change = makeChange(kind);
   if (typeof BroadcastChannel !== "undefined") {
-    const channel = new BroadcastChannel(CHANNEL_NAME);
+    const channel = new BroadcastChannel(SYNC_CHANNEL_NAME);
     channel.postMessage(change);
     channel.close();
     return;
   }
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(change));
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.setItem(SYNC_STORAGE_KEY, JSON.stringify(change));
+    localStorage.removeItem(SYNC_STORAGE_KEY);
   } catch {
     // Revision checks still protect writes when cross-tab notification is unavailable.
   }
@@ -48,7 +47,7 @@ export function subscribeAppStateChanges(listener: (change: AppStateChange) => v
   if (typeof window === "undefined") return () => {};
 
   if (typeof BroadcastChannel !== "undefined") {
-    const channel = new BroadcastChannel(CHANNEL_NAME);
+    const channel = new BroadcastChannel(SYNC_CHANNEL_NAME);
     channel.addEventListener("message", (event) => {
       if (isChange(event.data) && event.data.source !== TAB_ID) listener(event.data);
     });
@@ -56,7 +55,7 @@ export function subscribeAppStateChanges(listener: (change: AppStateChange) => v
   }
 
   const storageListener = (event: StorageEvent) => {
-    if (event.key !== STORAGE_KEY || !event.newValue) return;
+    if (event.key !== SYNC_STORAGE_KEY || !event.newValue) return;
     try {
       const change: unknown = JSON.parse(event.newValue);
       if (isChange(change) && change.source !== TAB_ID) listener(change);

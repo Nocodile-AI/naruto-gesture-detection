@@ -80,7 +80,7 @@ export class HandCamera {
       // MediaPipe can finish close() slightly before Chromium releases the video
       // capture pipeline. Yield briefly before requesting the same device again.
       await new Promise<void>((resolve) => setTimeout(resolve, 100));
-      this.status("Camera starting...", false);
+      this.status("Camera starting…", false);
       logDiagnostic("camera", "requesting-stream");
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480, facingMode: "user" },
@@ -98,7 +98,7 @@ export class HandCamera {
         height: this.video.videoHeight,
         readyState: this.video.readyState,
       });
-      this.status("Camera ready. Loading hand tracking...", false);
+      this.status("Camera ready. Loading hand tracking…", false);
       if (!this.modulePromise) await this.prepare();
       const modulePromise = this.modulePromise;
       if (!modulePromise) throw new Error("Hand tracking could not initialize.");
