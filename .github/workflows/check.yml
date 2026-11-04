@@ -1,7 +1,9 @@
-name: Check pull request
+name: Check
 
 on:
   pull_request:
+  push:
+    branches: [main, modernize]
 
 permissions:
   contents: read
