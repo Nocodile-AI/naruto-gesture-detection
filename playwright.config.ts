@@ -2,8 +2,6 @@ import { defineConfig, devices } from "@playwright/test";
 
 // These specs need a fake webcam, which only Chromium offers through launch flags.
 const NEEDS_FAKE_CAMERA = ["**/camera.spec.ts", "**/trigger-frame-rate.spec.ts"];
-// This spec patches Chromium to behave like Apple's WebKit.
-const CHROMIUM_ONLY = [...NEEDS_FAKE_CAMERA, "**/clone-compositing.spec.ts"];
 const LAYOUT_SPECS = ["**/viewport.spec.ts", "**/accessibility.spec.ts", "**/design.spec.ts"];
 
 const screens = {
@@ -29,12 +27,12 @@ export default defineConfig({
     {
       name: "firefox",
       use: { ...devices["Desktop Firefox"], viewport: screens.laptop },
-      testIgnore: CHROMIUM_ONLY,
+      testIgnore: NEEDS_FAKE_CAMERA,
     },
     {
       name: "webkit",
       use: { ...devices["Desktop Safari"], viewport: screens.laptop },
-      testIgnore: CHROMIUM_ONLY,
+      testIgnore: NEEDS_FAKE_CAMERA,
     },
     {
       name: "phone",

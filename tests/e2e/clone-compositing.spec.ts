@@ -1,6 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 import { composePersonLayer } from "../../src/clone-effect";
 
+// Playwright's Windows WebKit has no canvas.captureStream, and off macOS it has no Apple path.
+test.skip(
+  ({ browserName }) => browserName === "webkit" && process.platform !== "darwin",
+  "WebKit runs this file only on macOS.",
+);
+
 // Regression test for a bug where the clone effect never appeared on iPad Safari,
 // even though the gesture triggered and no error was logged. The fix was confirmed
 // on an iPad Air (5th generation), iPadOS 27.0.1, Safari.
@@ -14,6 +20,7 @@ import { composePersonLayer } from "../../src/clone-effect";
 // WebKit builds cannot show it. This patch applies the same behavior in Chromium, so
 // the test runs on any machine with Playwright installed:
 //   bun run build && bunx playwright test clone-compositing
+// CI also runs this file on macOS, where WebKit needs no patch.
 function emulateAppleVideoCompositing() {
   // oxlint-disable-next-line typescript/unbound-method -- called below through apply(this).
   const drawImage = CanvasRenderingContext2D.prototype.drawImage as (
@@ -32,9 +39,23 @@ function emulateAppleVideoCompositing() {
   };
 }
 
+// The drawing order from before the fix: mask first, then the video as the source.
+function oldComposePersonLayer(
+  ctx: CanvasRenderingContext2D,
+  video: CanvasImageSource,
+  mask: CanvasImageSource,
+  width: number,
+  height: number,
+) {
+  ctx.drawImage(mask, 0, 0, width, height);
+  ctx.globalCompositeOperation = "source-in";
+  ctx.drawImage(video, 0, 0, width, height);
+  ctx.globalCompositeOperation = "source-over";
+}
+
 // Green video, with a mask that keeps only the left half of the frame.
-async function samplePersonLayer(page: Page) {
-  await page.evaluate(`window.composePersonLayer = ${composePersonLayer.toString()}`);
+async function samplePersonLayer(page: Page, compose: typeof composePersonLayer) {
+  await page.evaluate(`window.composePersonLayer = ${compose.toString()}`);
   return page.evaluate(async () => {
     const source = document.createElement("canvas");
     source.width = 64;
@@ -82,10 +103,12 @@ async function samplePersonLayer(page: Page) {
 for (const apple of [false, true]) {
   test(`person layer keeps the background transparent ${apple ? "when video ignores compositing" : "with standard compositing"}`, async ({
     page,
+    browserName,
   }) => {
+    test.skip(apple && browserName !== "chromium", "The patch stands in for Apple's WebKit.");
     if (apple) await page.addInitScript(emulateAppleVideoCompositing);
     await page.goto("/");
-    const { person, background, composite } = await samplePersonLayer(page);
+    const { person, background, composite } = await samplePersonLayer(page, composePersonLayer);
     // An opaque background here covers every clone and smoke puff on the canvas.
     expect(background[3]).toBe(0);
     expect(person[3]).toBe(255);
@@ -93,3 +116,23 @@ for (const apple of [false, true]) {
     expect(composite).toBe("source-over");
   });
 }
+
+// Fails if the macOS build stops showing the bug, which would mean the test above no
+// longer exercises Apple's drawing path there.
+test("the old drawing order hides the clones on macOS WebKit", async ({ page, browserName }) => {
+  test.skip(browserName !== "webkit", "Apple's video drawing path exists only in WebKit.");
+  await page.goto("/");
+  const { background } = await samplePersonLayer(page, oldComposePersonLayer);
+  expect(background[3]).toBe(255);
+});
+
+test("the emulation reproduces the bug with the old drawing order", async ({
+  page,
+  browserName,
+}) => {
+  test.skip(browserName !== "chromium", "The patch stands in for Apple's WebKit.");
+  await page.addInitScript(emulateAppleVideoCompositing);
+  await page.goto("/");
+  const { background } = await samplePersonLayer(page, oldComposePersonLayer);
+  expect(background[3]).toBe(255);
+});
