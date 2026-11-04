@@ -1,4 +1,9 @@
 import { logDiagnostic } from "../diagnostics";
+let leavingPage = false;
+window.addEventListener("beforeunload", () => {
+  leavingPage = true;
+});
+
 // Legacy MediaPipe npm files expose browser globals, not ESM named exports.
 export async function loadScript(src: string): Promise<void> {
   logDiagnostic("mediapipe", "script-loading", { src });
@@ -10,6 +15,8 @@ export async function loadScript(src: string): Promise<void> {
       resolve();
     };
     script.onerror = (event) => {
+      // WebKit reports a load cancelled by a reload as a failed load.
+      if (leavingPage) return;
       const error = new Error(`Unable to load vision resource: ${src}. Reload to retry.`, {
         cause: event,
       });

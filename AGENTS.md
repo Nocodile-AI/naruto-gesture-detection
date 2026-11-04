@@ -128,6 +128,9 @@ bun run typecheck
 bun run test
 bun run build
 bun run test:e2e
+bun run test:coverage
+bun run test:mutation
+bun run test:lighthouse
 bun run check
 ```
 

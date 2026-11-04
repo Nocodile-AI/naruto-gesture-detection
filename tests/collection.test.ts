@@ -34,4 +34,10 @@ test("training readiness requires both clip diversity and accepted-frame minimum
 
   const tooFewFrames = enough.map((item) => ({ ...item, frames: frames(1) }));
   expect(readyToTrain(tooFewFrames)).toBe(false);
+
+  const tooFewClips = (["clone_sign", "not_sign"] as const).flatMap((label) => [
+    clip(`${label}-a`, label, COLLECTION.minFramesPerClass),
+    clip(`${label}-b`, label, COLLECTION.minFramesPerClass),
+  ]);
+  expect(readyToTrain(tooFewClips)).toBe(false);
 });

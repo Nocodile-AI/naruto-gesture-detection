@@ -1,0 +1,29 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "testRunner": "vitest",
+  "plugins": ["@stryker-mutator/vitest-runner"],
+  "mutate": [
+    "src/trigger.ts",
+    "src/features.ts",
+    "src/collection.ts",
+    "src/classifier.ts",
+    "src/performance-report.ts",
+    "src/recovery.ts",
+    "src/diagnostics.ts",
+    "src/storage.ts",
+    "src/state-sync.ts"
+  ],
+  "reporters": ["clear-text", "html"],
+  "tsconfigFile": "stryker-skips-tsconfig-rewrite-on-typescript-7.json",
+  "ignorePatterns": [
+    ".agents",
+    ".claude",
+    ".planning",
+    ".lighthouseci",
+    "test-results",
+    "playwright-report",
+    "dist"
+  ],
+  "tempDirName": ".stryker-tmp",
+  "cleanTempDir": "always"
+}

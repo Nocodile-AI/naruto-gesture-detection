@@ -89,7 +89,7 @@ export function getTrackingState(): TrackingState {
 }
 
 function median(values: number[]): number {
-  const sorted = [...values].sort((a, b) => a - b);
+  const sorted = values.toSorted((a, b) => a - b);
   return sorted[Math.floor(sorted.length / 2)] ?? 0;
 }
 
@@ -102,7 +102,7 @@ export function summarizeFrames(samples: FrameSample[], now: number): FrameSumma
   const gaps = recent
     .slice(1)
     .map((sample, index) => sample.at - recent[index].at)
-    .sort((a, b) => a - b);
+    .toSorted((a, b) => a - b);
   return {
     framesPerSecond: ((recent.length - 1) * 1000) / elapsed,
     frameMs: elapsed / (recent.length - 1),

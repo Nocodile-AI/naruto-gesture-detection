@@ -3,6 +3,9 @@ node_modules/
 dist/
 out/
 coverage/
+reports/
+.stryker-tmp/
+.lighthouseci/
 public/vendor/
 *.tsbuildinfo
 

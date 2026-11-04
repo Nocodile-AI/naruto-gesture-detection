@@ -5,6 +5,10 @@
     ".claude/**",
     ".planning/**",
     "bun.lock",
+    "coverage/**",
+    "reports/**",
+    ".stryker-tmp/**",
+    ".lighthouseci/**",
     "public/**",
     "skills-lock.json"
   ]

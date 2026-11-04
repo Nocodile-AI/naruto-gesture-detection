@@ -29,7 +29,7 @@ function emulateAppleVideoCompositing() {
     this.globalCompositeOperation = "source-over";
     drawImage.apply(this, args);
     this.globalCompositeOperation = operation;
-  } as typeof CanvasRenderingContext2D.prototype.drawImage;
+  };
 }
 
 // Green video, with a mask that keeps only the left half of the frame.
