@@ -1,5 +1,5 @@
 import type { DiagnosticEntry } from "./diagnostics";
-import { SCORE_INTERVAL_MS, TRIGGER_CONFIG } from "./trigger";
+import { TRIGGER_CONFIG } from "./trigger";
 
 export interface FrameSample {
   at: number;
@@ -93,24 +93,16 @@ function median(values: number[]): number {
   return sorted[Math.floor(sorted.length / 2)] ?? 0;
 }
 
-/** Replays the rule in the score loop: a frame is scored once SCORE_INTERVAL_MS has passed. */
-export function scoreGaps(times: number[]): number[] {
-  const gaps: number[] = [];
-  let last = times[0];
-  for (const at of times.slice(1)) {
-    if (at - last < SCORE_INTERVAL_MS) continue;
-    gaps.push(at - last);
-    last = at;
-  }
-  return gaps;
-}
-
 export function summarizeFrames(samples: FrameSample[], now: number): FrameSummary | null {
   const recent = samples.filter((sample) => sample.at >= now - WINDOW_MS);
   const last = recent.at(-1);
   if (recent.length < 4 || !last || now - last.at > STALE_MS) return null;
   const elapsed = last.at - recent[0].at;
-  const gaps = scoreGaps(recent.map((sample) => sample.at)).sort((a, b) => a - b);
+  // Every frame is scored, so the wait between scores is the wait between frames.
+  const gaps = recent
+    .slice(1)
+    .map((sample, index) => sample.at - recent[index].at)
+    .sort((a, b) => a - b);
   return {
     framesPerSecond: ((recent.length - 1) * 1000) / elapsed,
     frameMs: elapsed / (recent.length - 1),

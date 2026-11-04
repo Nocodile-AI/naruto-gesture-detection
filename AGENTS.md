@@ -77,7 +77,7 @@ The trigger also requires sustained evidence rather than a single prediction:
 
 - 500 ms positive hold
 - at least 3 positive predictions
-- max 200 ms gap between positive predictions
+- max 250 ms gap between positive predictions
 - release at or below 0.6 for 600 ms
 - 2 second cooldown
 

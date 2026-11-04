@@ -33,7 +33,7 @@ const seededDataset = {
   ],
 };
 
-export async function seedDataset(page: Page): Promise<void> {
+export async function seedDataset(page: Page, dataset: unknown = seededDataset): Promise<void> {
   await page.evaluate(
     async ({ storageName, storageVersion, featureVersion, featureSize, dataset }) => {
       await new Promise<void>((resolve, reject) => {
@@ -64,7 +64,7 @@ export async function seedDataset(page: Page): Promise<void> {
       storageVersion: STORAGE_VERSION,
       featureVersion: FEATURE_VERSION,
       featureSize: FEATURE_SIZE,
-      dataset: seededDataset,
+      dataset,
     },
   );
 }

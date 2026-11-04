@@ -4,7 +4,6 @@ import {
   frameVerdict,
   latestCloneStats,
   latestTrainingRun,
-  scoreGaps,
   startupStages,
   summarizeFrames,
   trainingStages,
@@ -31,18 +30,11 @@ function entry(seconds: number, stage: string, event: string, details?: unknown)
 /** Runs the real trigger on the scores a uniform frame rate would produce. */
 function triggerFires(intervalMs: number): boolean {
   const trigger = new GestureTrigger();
-  const times = frameTimes(intervalMs);
-  let last = times[0];
-  let fired = trigger.observe(1, last).triggered;
-  for (const gap of scoreGaps(times)) {
-    last += gap;
-    fired = trigger.observe(1, last).triggered || fired;
-  }
-  return fired;
+  return frameTimes(intervalMs).some((at) => trigger.observe(1, at).triggered);
 }
 
 describe("frame verdict", () => {
-  test.each([33, 90, 130, 145, 160, 240, 300])(
+  test.each([33, 90, 110, 130, 145, 160, 240, 260, 300])(
     "agrees with the real trigger at %i ms per frame",
     (intervalMs) => {
       const times = frameTimes(intervalMs);
@@ -67,7 +59,7 @@ describe("frame summary", () => {
       maskMs: 17,
       handsMs: 71,
       drawMs: 2,
-      scoreGapMs: 200,
+      scoreGapMs: 100,
     });
   });
 

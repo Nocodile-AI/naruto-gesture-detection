@@ -4,13 +4,10 @@ export const TRIGGER_CONFIG = {
   holdMs: 500,
   minPositivePredictions: 3,
   // Not in the original project, which fires on the first score above its threshold.
-  maxPositiveGapMs: 200,
+  maxPositiveGapMs: 250,
   releaseMs: 600,
   cooldownMs: 2000,
 } as const;
-
-/** Frames arriving sooner than this reuse the last score. */
-export const SCORE_INTERVAL_MS = 150;
 
 export type TriggerPhase = "armed" | "holding" | "latched" | "release-required";
 

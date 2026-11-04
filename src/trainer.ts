@@ -27,7 +27,7 @@ import { trainClassifier, predictScore, TRAINING_EPOCHS, readyToDebugTrain } fro
 import { logDiagnostic } from "./diagnostics";
 import { addDrawTime, watchFreezes, type TrainingRun } from "./performance-report";
 import { initializeDiagnosticsPanel } from "./diagnostics-panel";
-import { GestureTrigger, SCORE_INTERVAL_MS } from "./trigger";
+import { GestureTrigger } from "./trigger";
 import { storageFailureMessage } from "./recovery";
 import { subscribeAppStateChanges } from "./state-sync";
 import { CloneEffect, CLONE_EFFECT_DURATION_MS } from "./clone-effect";
@@ -47,7 +47,6 @@ let editingExamples = true;
 let trainingAbort: AbortController | null = null;
 let effectTimer: ReturnType<typeof setTimeout> | null = null;
 let latest: number[] | null = null;
-let lastUi = 0;
 const practiceTrigger = new GestureTrigger();
 let recording: {
   label: ClassLabel;
@@ -209,8 +208,6 @@ const camera = new HandCamera(
       say("rec-badge", `${recording.frames.length}`);
     }
 
-    if (now - lastUi < SCORE_INTERVAL_MS) return;
-    lastUi = now;
     const gate = !model
       ? "no-model"
       : editingExamples
