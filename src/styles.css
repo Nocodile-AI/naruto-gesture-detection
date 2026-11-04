@@ -23,7 +23,7 @@
 :root {
   color-scheme: light;
   /* Keeps Start camera on screen: the page chrome around the 4:3 camera view takes 176px. */
-  --camera-max-width: max(240px, calc((100svh - 176px) * 4 / 3));
+  --camera-max-width: max(200px, calc((100svh - 176px) * 4 / 3));
 }
 
 @layer base {

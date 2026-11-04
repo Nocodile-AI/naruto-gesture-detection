@@ -76,11 +76,23 @@ test("the clones trigger at about 8 frames a second", async ({ page }) => {
   await expect(page.locator("#practice-status")).toHaveText("Clone sequence active.", {
     timeout: 10000,
   });
+  await page.locator("#diagnostics-panel summary").click();
+  await expect(page.locator("#diagnostics-legend")).toContainText(/Hand tracking\s*\d/);
+  await expect(page.locator("#diagnostics-verdict")).toHaveCount(0);
 });
 
 test("the clones do not trigger when frames are further apart than the limit", async ({ page }) => {
   test.setTimeout(90000);
+  await page.setViewportSize({ width: 1180, height: 820 });
   await trainAndStartCamera(page, 300);
   await page.waitForTimeout(3000);
   await expect(page.locator("#practice-status")).not.toHaveText("Clone sequence active.");
+  await page.locator("#diagnostics-panel summary").click();
+  const verdict = page.locator("#diagnostics-verdict");
+  await expect(verdict).toHaveText("Clones may not trigger on this device.");
+  const { height, lineHeight } = await verdict.evaluate((node) => ({
+    height: node.getBoundingClientRect().height,
+    lineHeight: Number.parseFloat(getComputedStyle(node).lineHeight),
+  }));
+  expect(height).toBeLessThan(lineHeight * 1.5);
 });

@@ -112,9 +112,11 @@ async function markExternalChange(): Promise<void> {
 
 async function checkStateFreshness(): Promise<void> {
   const { staleExternal, busy } = getApp();
-  if (session.disposed || staleExternal || busy === "booting") return;
+  if (session.disposed || staleExternal || busy !== "idle") return;
   try {
     const stamp = await loadStateStamp();
+    // A save that started during the read has not finished updating this tab's copy yet.
+    if (getApp().busy !== "idle") return;
     if (
       stamp.datasetRevision !== session.persistedRevision ||
       stamp.modelId !== (session.record?.id ?? null)

@@ -42,7 +42,7 @@ export function App() {
         </header>
         <StatusLine id="boot-status" text={bootStatus} />
         <SyncWarning />
-        <div className="grid items-start gap-4 min-[821px]:grid-cols-[min(67%,var(--camera-max-width))_minmax(280px,1fr)]">
+        <div className="grid items-start gap-4 min-[821px]:grid-cols-[minmax(0,min(67%,var(--camera-max-width)))_minmax(280px,1fr)]">
           <CameraPanel />
           <aside className="grid min-w-0 content-start gap-2.5">
             {showPractice ? <PracticeControls /> : <TrainingControls />}

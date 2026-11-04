@@ -9,6 +9,18 @@ test("the page fits the screen without sideways scrolling", async ({ page }) => 
   expect(overflow).toBeLessThanOrEqual(0);
 });
 
+// Just past the two-column breakpoint, where the columns have the least room.
+for (const width of [821, 834, 880, 912]) {
+  test(`the two columns fit a ${width} px window`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1100 });
+    await page.goto("/");
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+}
+
 // Browser bars take height from the page, so these windows are shorter than the screens.
 const shortWindows = [
   { name: "laptop with browser bars", width: 1366, height: 620 },
@@ -17,6 +29,7 @@ const shortWindows = [
   { name: "iPad portrait with Safari bars", width: 820, height: 1050 },
   { name: "iPad split view", width: 678, height: 500 },
   { name: "phone with browser bars", width: 390, height: 660 },
+  { name: "small phone held sideways", width: 568, height: 320 },
 ];
 
 for (const { name, width, height } of shortWindows) {

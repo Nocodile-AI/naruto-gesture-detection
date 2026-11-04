@@ -1,4 +1,5 @@
-import { useEffect, useReducer, useRef, useState, type ReactNode } from "react";
+import { Activity, useEffect, useReducer, useRef, useState, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { getVideo, testCanvas, testCloneEffect } from "../app/vision";
 import { diagnosticText, getDiagnosticSnapshot } from "../diagnostics";
 import {
@@ -213,11 +214,6 @@ function Legend({
   );
 }
 
-const TONES: Record<string, string> = {
-  idle: "text-muted",
-  warn: "text-danger before:content-['!_']",
-};
-
 function DiagnosticsBody() {
   const live = useLiveStats();
   const video = getVideo();
@@ -253,12 +249,6 @@ function DiagnosticsBody() {
   if (stats?.personCoverage != null)
     cloneFacts.push(["Person layer", `${Math.round(stats.personCoverage * 100)}% of the frame`]);
 
-  useEffect(() => {
-    if (fallbackLog === null || !logRef.current) return;
-    logRef.current.focus();
-    logRef.current.select();
-  }, [fallbackLog]);
-
   const copyLogs = () => {
     const log = diagnosticText({
       verdict,
@@ -272,8 +262,12 @@ function DiagnosticsBody() {
       device: Object.fromEntries(device),
     });
     const askToSelect = () => {
-      setFallbackLog(log);
-      setCopyStatus("Select and copy the log below.");
+      flushSync(() => {
+        setFallbackLog(log);
+        setCopyStatus("Select and copy the log below.");
+      });
+      logRef.current?.focus();
+      logRef.current?.select();
     };
     if (!navigator.clipboard) {
       askToSelect();
@@ -291,15 +285,18 @@ function DiagnosticsBody() {
 
   return (
     <>
-      <section aria-labelledby="diagnostics-verdict" className="mt-5">
-        <h2
-          id="diagnostics-verdict"
-          data-tone={verdict.tone}
-          className={`text-[clamp(19px,5vw,38px)] leading-[1.05] font-black tracking-[-0.03em] text-balance ${TONES[verdict.tone] ?? ""}`}
-        >
-          {verdict.title}
-        </h2>
-        <p className="mt-2 mb-4 max-w-[62ch] text-muted">{verdict.detail}</p>
+      <section aria-label="Frame timing" className="mt-5">
+        {verdict.tone === "warn" && (
+          <>
+            <h2
+              id="diagnostics-verdict"
+              className="text-[clamp(19px,5vw,38px)] leading-[1.05] font-black tracking-[-0.03em] text-balance text-danger before:content-['!_']"
+            >
+              {verdict.title}
+            </h2>
+            <p className="mt-2 mb-4 max-w-[62ch] text-muted">{verdict.detail}</p>
+          </>
+        )}
         <FrameRibbon
           frames={frames}
           selected={selected}
@@ -413,17 +410,25 @@ function ErrorFlag() {
 
 export function DiagnosticsPanel() {
   const [open, setOpen] = useState(false);
+  const [opened, setOpened] = useState(false);
   return (
     <details
       id="diagnostics-panel"
-      onToggle={(event) => setOpen(event.currentTarget.open)}
+      onToggle={(event) => {
+        setOpen(event.currentTarget.open);
+        if (event.currentTarget.open) setOpened(true);
+      }}
       className="mt-3 rounded-lg border border-slate-300 px-3 py-2.5 open:pb-6"
     >
       <summary className="cursor-pointer font-semibold">
         <span>Diagnostics</span>
         <ErrorFlag />
       </summary>
-      {open && <DiagnosticsBody />}
+      {opened && (
+        <Activity mode={open ? "visible" : "hidden"}>
+          <DiagnosticsBody />
+        </Activity>
+      )}
     </details>
   );
 }

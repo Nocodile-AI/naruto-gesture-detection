@@ -121,6 +121,36 @@ it("restores Canvas transforms after clone rendering throws", async () => {
   );
 });
 
+it("draws the clones and smoke behind the real person", async () => {
+  ImmediateImage.fails = false;
+  vi.stubGlobal("Image", ImmediateImage);
+  const person = { width: 0, height: 0, getContext: () => canvasContext() };
+  vi.stubGlobal("document", { createElement: () => person });
+  const effect = new CloneEffect({ dataset: {}, src: "" });
+  await effect.startTest(0);
+  vi.spyOn(performance, "now").mockReturnValue(1500);
+  const ctx = canvasContext();
+  let depth = 0;
+  const draws: { source: unknown; depth: number }[] = [];
+  ctx.save.mockImplementation(() => {
+    depth += 1;
+  });
+  ctx.restore.mockImplementation(() => {
+    depth -= 1;
+  });
+  ctx.drawImage.mockImplementation((source: unknown) => {
+    draws.push({ source, depth });
+  });
+  effect.drawTest(ctx, 640, 480);
+  // Clones and smoke each sit in a nested transform. The real person has only the mirror.
+  const foreground = draws.at(-1);
+  expect(foreground?.source).toBe(person);
+  expect(foreground?.depth).toBe(1);
+  const behind = draws.slice(0, -1);
+  expect(behind.length).toBeGreaterThan(0);
+  expect(behind.every((draw) => draw.depth === 2)).toBe(true);
+});
+
 it("masks the live person without drawing the video under a composite mode", async () => {
   ImmediateImage.fails = false;
   vi.stubGlobal("Image", ImmediateImage);

@@ -13,7 +13,7 @@ export class HandCamera {
   private pending: Promise<void> | null = null;
   private generation = 0;
   private active = false;
-  private starting = false;
+  private startingGeneration: number | null = null;
   private stopped: Promise<void> = Promise.resolve();
   private firstResult = false;
   private firstSend = false;
@@ -66,20 +66,22 @@ export class HandCamera {
     }
   };
   async start(): Promise<void> {
-    if (this.active || this.starting) return;
+    // stop() moves the generation on, so a start it cancelled no longer blocks a new one.
+    if (this.active || this.startingGeneration === this.generation) return;
     const support = cameraSupportMessage();
     if (support) {
       logDiagnostic("camera", "unsupported", { message: support }, "warn");
       this.status(support, false);
       return;
     }
-    this.starting = true;
     const generation = ++this.generation;
+    this.startingGeneration = generation;
     try {
       await this.stopped;
       // MediaPipe can finish close() slightly before Chromium releases the video
       // capture pipeline. Yield briefly before requesting the same device again.
       await new Promise<void>((resolve) => setTimeout(resolve, 100));
+      if (generation !== this.generation) return;
       this.status("Camera starting…", false);
       logDiagnostic("camera", "requesting-stream");
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -146,7 +148,7 @@ export class HandCamera {
         this.status(cameraFailureMessage(error), false);
       }
     } finally {
-      this.starting = false;
+      if (this.startingGeneration === generation) this.startingGeneration = null;
     }
   }
   /**

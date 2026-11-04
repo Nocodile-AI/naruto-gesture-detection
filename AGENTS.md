@@ -98,7 +98,7 @@ Rendering order matters. The intended stack is:
 
 The real person must appear in front of the clones. The effect currently has a finite 4.6 second lifetime and then resets so it can be used again after release.
 
-Never draw the `<video>` under a non-default composite mode. Apple's WebKit ignores `globalCompositeOperation` for video sources ([WebKit bug 221542](https://bugs.webkit.org/show_bug.cgi?id=221542)), which makes the foreground layer an opaque frame that hides the clones and smoke. Playwright's WebKit builds do not contain this code path, so `tests/e2e/clone-compositing.spec.ts` emulates it in Chromium.
+Never draw the `<video>` under a non-default composite mode. Apple's WebKit ignores `globalCompositeOperation` for video sources ([WebKit bug 221542](https://bugs.webkit.org/show_bug.cgi?id=221542)), which makes the foreground layer an opaque frame that hides the clones and smoke. Playwright's Windows and Linux WebKit builds do not contain this code path, so `tests/e2e/clone-compositing.spec.ts` emulates it in Chromium. The macOS CI job runs the same file on Apple's WebKit without the emulation.
 
 The `state-1.png` and `state-2.png` overlay assets come from the original project. Mirroring should remain consistent with the selfie view.
 

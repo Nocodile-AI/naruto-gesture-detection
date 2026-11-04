@@ -72,17 +72,14 @@ test("production diagnostics capture full nested errors and rejection history ac
   await expect(page.locator("#diagnostics-flag")).toBeHidden();
 });
 
-test("the verdict stays on one line on an iPad", async ({ page }) => {
-  await page.setViewportSize({ width: 1180, height: 820 });
+test("closing diagnostics keeps the event filter", async ({ page }) => {
   await page.goto("/");
-  await page.locator("#diagnostics-panel summary").click();
-  const verdict = page.locator("#diagnostics-verdict");
-  await expect(verdict).toHaveText(/Start the camera/);
-  const { height, lineHeight } = await verdict.evaluate((node) => ({
-    height: node.getBoundingClientRect().height,
-    lineHeight: Number.parseFloat(getComputedStyle(node).lineHeight),
-  }));
-  expect(height).toBeLessThan(lineHeight * 1.5);
+  const summary = page.locator("#diagnostics-panel summary");
+  await summary.click();
+  await page.getByRole("button", { name: /Show problems only/ }).click();
+  await summary.click();
+  await summary.click();
+  await expect(page.getByRole("button", { name: "Show all events" })).toBeVisible();
 });
 
 test("expanded diagnostics are accessible and usable on narrow screens with clipboard unavailable", async ({
@@ -91,7 +88,7 @@ test("expanded diagnostics are accessible and usable on narrow screens with clip
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await page.locator("#diagnostics-panel summary").click();
-  await expect(page.locator("#diagnostics-verdict")).toHaveText(/Start the camera/);
+  await expect(page.locator("#diagnostics-verdict")).toHaveCount(0);
   await expect(page.locator("#diagnostics-device")).toContainText(/Model runs on\s*cpu/);
   await expect(page.locator("#diagnostics-training")).toHaveText("Train a model to time this.");
   await page.evaluate(() =>
@@ -109,6 +106,9 @@ test("expanded diagnostics are accessible and usable on narrow screens with clip
         undefined,
       ),
   ).toBe(true);
+  await page.getByRole("button", { name: "Copy logs" }).focus();
+  await page.getByRole("button", { name: "Copy logs" }).click();
+  await expect(page.locator("#diagnostics-log")).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });

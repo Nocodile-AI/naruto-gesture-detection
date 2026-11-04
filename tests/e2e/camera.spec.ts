@@ -62,6 +62,21 @@ test("shared camera supports collection stop and restart", async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+test("starting again right after a stop still starts the camera", async ({ page }) => {
+  test.setTimeout(120000);
+  await page.goto("/");
+  const start = page.getByRole("button", { name: "Start camera" });
+  await start.click();
+  await page.getByRole("button", { name: "Stop camera" }).click();
+  await start.click();
+  await expectSharedCameraReady(page);
+  expect(
+    await page
+      .locator("video")
+      .evaluate((video: HTMLVideoElement) => Boolean(video.srcObject), undefined),
+  ).toBe(true);
+});
+
 test("training pauses tracking but not the video, then reports the run", async ({ page }) => {
   test.setTimeout(150000);
   await page.goto("/");
@@ -70,13 +85,13 @@ test("training pauses tracking but not the video, then reports the run", async (
   await page.locator("#diagnostics-panel summary").click();
   await page.getByRole("button", { name: "Start camera" }).click();
   await expectSharedCameraReady(page);
-  await expect(page.locator("#diagnostics-verdict")).toHaveText(/Clones (can|may not) trigger/, {
+  await expect(page.locator("#diagnostics-legend")).toContainText(/Hand tracking\s*\d/, {
     timeout: 30000,
   });
 
   await page.getByRole("button", { name: "Train model" }).click();
   await expect(page.locator("#train-status")).toHaveText(/Starting training|Training \d+/);
-  await expect(page.locator("#diagnostics-verdict")).toHaveText(/Tracking is paused/);
+  await expect(page.locator('[data-event="tracking-paused"]')).toHaveCount(1);
   const videoTime = () =>
     page.locator("video").evaluate((video: HTMLVideoElement) => video.currentTime, undefined);
   const playedFrom = await videoTime();
@@ -86,9 +101,6 @@ test("training pauses tracking but not the video, then reports the run", async (
   await expect(page.locator('[data-event="tracking-resumed"]')).toHaveCount(1);
   await expect(page.locator("#diagnostics-training")).toContainText("Until the first progress");
   await expect(page.locator("#diagnostics-training-note")).toContainText("Full train with");
-  await expect(page.locator("#diagnostics-verdict")).toHaveText(/Clones (can|may not) trigger/, {
-    timeout: 30000,
-  });
 });
 
 test("trained model uses the same camera for live score and clone runtime", async ({ page }) => {

@@ -4,7 +4,7 @@ export default defineConfig({
     include: ["tests/**/*.test.ts"],
     coverage: {
       provider: "v8",
-      include: ["src/**/*.ts"],
+      include: ["src/**/*.{ts,tsx}"],
       // Browser-global adapters have no logic to measure.
       exclude: ["src/runtime/**"],
       reporter: ["text", "html"],
