@@ -120,6 +120,8 @@ Use the native button, dialog, details, and progress elements through `src/compo
 
 Destructive actions should look destructive and should not visually compete with the primary workflow action.
 
+Color tokens live in `src/styles.css`. Orange is the clone-sign accent, and red marks destructive actions and failures.
+
 ## Commands
 
 ```sh
